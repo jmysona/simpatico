@@ -75,7 +75,9 @@ namespace McMd
      double polymerPotential_;
      double currentNatom_;
      int moveType_;     
-
+     int N_0;
+     int N_P;
+     int N_S;
    };
 
 }

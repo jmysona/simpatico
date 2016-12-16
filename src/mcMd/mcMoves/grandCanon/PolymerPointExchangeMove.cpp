@@ -60,15 +60,26 @@ namespace McMd
 
    bool PolymerPointExchangeMove::move()
    {  
-     /* incrementNAttempt();
-      int pointMaxCap;
+      incrementNAttempt();
+     /* int pointMaxCap;
       int polymerMaxCap;
       currentNatom_=system().nMolecule(pointSpeciesId_);
       pointMaxCap=system().simulation().species(pointSpeciesId_).capacity();
       polymerNmolecule_=system().nMolecule(polymerSpeciesId_);
       polymerMaxCap=system().simulation().species(polymerSpeciesId_).capacity();
-*/
-
+*/    
+      //Species* polymerPtr = &system.simulation().species(polymerSpeciesId_);
+      //Species* solventPtr = &system.simulation().species(pointSpeciesId_);
+      N_P = system().nMolecule(polymerSpeciesId_);
+      N_S = system().nMolecule(pointSpeciesId_);
+      N_0 = 8;
+      double top = 1;
+      double bottom = 1;
+      for (int i = 0; i<N_0; i++) {
+        top = top*(N_P*N_0-i);
+        bottom = bottom*(N_S+N_0-i);
+      }
+      double prefactor=top/bottom;     
       int moveType_=0;
      // atomMaxCap=system().simulation().species(speciesId_).capacity();
      // moveType_ = simulation().random().uniformInt(0,2);
@@ -100,32 +111,61 @@ namespace McMd
       Molecule* molPtr;
       // Choose a chain to delete
       molPtr = &(system().randomMolecule(polymerSpeciesId_));
-      Atom* theAtom;
-      double V;
-      for (int i = 0; i < nAtomsInMolecule; ++i) {
-        theAtom = &molPtr->atom(i);
-          for (int j = 0; j < Dimension; ++j) {
-            r[j]=theAtom->position()[j];
-          }
-        double energy;
-        #ifndef INTER_NOPAIR
-        energy=system().atomPotentialEnergy(*theAtom);
-        #else
-        energy=0.0;
-        #endif
+      
+      Atom* atomPtr;
+      float prefactor;
+      //double oldEnergy = system().pairPotential().moleculeEnergy(*molPtr);
+      double oldEnergy=0;
+      Vector beadPositions[N_0];
+      int    solventBeadIds[N_0];
+      for (int i=0; i<N_0; i++) {
+          atomPtr = &molPtr->atom(i);
+          oldEnergy += system().bondPotential().atomEnergy(*atomPtr);
+          //While getting energy, get the positions too
+          beadPositions[i]=atomPtr->position();
+          oldEnergy += system().pairPotential().atomEnergy(*atomPtr);
+          
       }
-      V = boundary().volume();
- /*     bool accept = random().metropolis(boltzmann(-totalEnergy+insertionPotential_)*currentNatom_/V);
+            for (int atomId = 0; atomId < molPtr->nAtom(); ++atomId) {
+                system().pairPotential().deleteAtom(molPtr->atom(atomId));
+            }
+      system().removeMolecule(*molPtr);
+      simulation().returnMolecule(*molPtr);
+      // Delete
+      // Add the points and calculate energy 
+      double newEnergy;
+        Molecule* pointPtr;
+      Atom* theAtom;
+      newEnergy =0;
+      for (int i=0; i<N_0; i++) {
+        pointPtr = &(simulation().getMolecule(pointSpeciesId_)); 
+        system().addMolecule(*pointPtr);
+        theAtom =&pointPtr->atom(0);
+        theAtom->position()=beadPositions[i];
+        solventBeadIds[i]=system().moleculeId(*pointPtr);
+        system().pairPotential().addAtom(*theAtom);
+      }
+      for (int i=0; i<N_0; i++) {
+         pointPtr = &(system().molecule(pointSpeciesId_, solventBeadIds[i]));
+         theAtom =&pointPtr->atom(0);
+         newEnergy += system().pairPotential().atomEnergy(*theAtom);
+      }
+      //Determine if accepted or not
+      bool accept = random().metropolis(prefactor*boltzmann(oldEnergy-newEnergy-polymerPotential_));
+      
       if (accept) {
-         incrementNAccept();
-        // system().pairPotential().deleteAtom(*theAtom);
-         system().removeMolecule(*molPtr);
-         simulation().returnMolecule(*molPtr);
-         return accept;
       } else {
-         return accept;
-    }
-   */      
+        Molecule* polyPtr;        
+        polyPtr = &(simulation().getMolecule(polymerSpeciesId_)); 
+        system().addMolecule(*polyPtr);
+        Atom* thePolymerAtom;
+         
+        for (int i = 0; i < N_0; i++) {
+            thePolymerAtom = &polyPtr->atom(i);
+            thePolymerAtom->position() = beadPositions[i];
+        }
+      }
+      return accept;
    }
 
    bool PolymerPointExchangeMove::insertion()
