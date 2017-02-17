@@ -68,9 +68,21 @@ namespace McMd
   * Calculate I_ab and other important quantities
   */
   void SecondOrderInteraction::sample(long iStep)
-  {
+  { 
+    DMatrix<double> CurrentIab;
+    DArray<double> Ia;
+    double I;
+    double Isquared;
     int sampleCount = 0;
     int nMolecule = system().nMolecule(speciesId_);
+    for (int i = 0; i < nMolecule; ++i) {
+      for (int j = 0; j < nAtoms; ++j) {
+          CurrentIab[i][j]=CurrentIab[i][j]+energy;
+          Iab[i][j]=Iab[i][j]+energy;
+      }
+    
+    
+    }
 
 
   }
