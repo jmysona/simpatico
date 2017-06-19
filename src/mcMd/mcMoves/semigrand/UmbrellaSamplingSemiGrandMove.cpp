@@ -12,7 +12,6 @@
 #include <mcMd/potentials/pair/McPairPotential.h>
 #endif
 #include <mcMd/species/LinearSG.h>
-
 #include <mcMd/chemistry/Molecule.h> //testing
 #include <util/global.h>
 
@@ -41,7 +40,7 @@ namespace McMd
       // Read parameters
       readProbability(in);
       read<int>(in, "speciesId", speciesId_);
-      // Cast the Species to HomopolymerSG
+      // Cast the Species to LinearSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
          UTIL_THROW("Error: Species must be GeneralpolymerSG");
@@ -51,9 +50,8 @@ namespace McMd
       mutatorPtr_ = &speciesPtr_->mutator();
       weights_.allocate(capacity_);
       stateCount_.allocate(capacity_); 
-      read<double>(in, "weightStep", weightSize_);
-      read<int>(in, "UpperLimit", Ulimit_);
-      read<int>(in, "LowerLimit", Llimit_);
+      read<int>(in, "UpperLimit", uLimit_);
+      read<int>(in, "LowerLimit", lLimit_);
       read<std::string>(in, "outputFileName",outputFileName_);
       readOptional<std::string>(in, "initialWeights",initialWeightFileName_);
       std::ifstream weightFile;
@@ -61,8 +59,7 @@ namespace McMd
          system().fileMaster().open(initialWeightFileName_, weightFile);
          int n;
          double m;
-         while (weightFile >> n >>m)
-         {
+         while (weightFile >> n >>m) {
            weights_[n]= m;
          }
       } else {
@@ -77,7 +74,6 @@ namespace McMd
         fileName = outputFileName_+".weights";      
         system().fileMaster().openOutputFile(fileName, outputFile_);
         outputFile_ << stepCount_ << "	" << weightSize_ << std::endl;
-        crit_=.05;
    }
    /*
    * Load state from an archive.
@@ -86,16 +82,15 @@ namespace McMd
    {  
       McMove::loadParameters(ar);
       loadParameter<int>(ar, "speciesId", speciesId_);
-
-      // Cast the Species to HomopolymerSG
+      // Cast the Species to LinearSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
          UTIL_THROW("Species is not a LinearSG");
       }
       weights_.allocate(capacity_);      
-      loadParameter<double>(ar, "weightStep", weightSize_); 
-      loadParameter<int>(ar, "UpperLimit", Ulimit_);
-      loadParameter<int>(ar, "LowerLimit", Llimit_);
+      loadParameter<int>(ar, "UpperLimit", uLimit_);
+      loadParameter<int>(ar, "LowerLimit", lLimit_);
+      loadParameter<DArray>(ar, "initialWeights", weights_);
    }
    
 
@@ -106,6 +101,9 @@ namespace McMd
    {
       McMove::save(ar);
       ar & speciesId_;  
+      ar & uLimit_;
+      ar & lLimit_;
+      ar & weights_;
    }
      
 
@@ -119,29 +117,16 @@ namespace McMd
                      << " = " << nMol << std::endl;
          UTIL_THROW("Number of molecules in species <= 0");
       }
-   /*   if (nType0==Range_[0]) {
-         flipType = 1;
-         nType=nMol-nType0;
-      } else {
-      if (nType0==Range_[1]) {
-         flipType = 0;
-         nType=nType0;
-      } else {
-         return system().randomMolecule(speciesId);
-      }
-      } 
-     */
-       
       index = simulation().random().uniformInt(0, nSubType);
       for (int i=0; i<nMol; ++i) {
         type = speciesPtr_->mutator().moleculeStateId(system().molecule(speciesId, i));
-         if (type==flipType) {
-            if (count==index) {
-               moleculeId = i;
-               return system().molecule(speciesId, moleculeId);
-            }
-            count = count + 1;
-         }
+        if (type==flipType) {
+           if (count==index) {
+              moleculeId = i;
+              return system().molecule(speciesId, moleculeId);
+           }
+           count += 1;
+        }
       }
       UTIL_THROW("No molecule selected");
    }
@@ -153,7 +138,7 @@ namespace McMd
    { 
       incrementNAttempt();
       // Special semigrand selector
-           SpeciesMutator* mutatorPtr = &speciesPtr_->mutator();
+      SpeciesMutator* mutatorPtr = &speciesPtr_->mutator();
       int oldStateCount = mutatorPtr->stateOccupancy(0);
       if  (oldStateCount == Ulimit_) {
       flipSubtype_ = simulation().random().uniformInt(0,2);
@@ -185,13 +170,9 @@ namespace McMd
       int oldStateId = speciesPtr_->mutator().moleculeStateId(molecule);
       int newStateId = (oldStateId == 0) ? 1 : 0;
       speciesPtr_->mutator().setMoleculeState(molecule, newStateId);
-
       #ifdef INTER_NOPAIR 
-
       bool   accept = true;
-      
        #else //ifndef INTER_NOPAIR
-
       // Recalculate pair energy for the molecule
       double newEnergy = system().pairPotential().moleculeEnergy(molecule);
       double numoWeight = (double)(mutatorPtr->stateOccupancy(oldStateId)+1)/(double)(mutatorPtr->stateOccupancy(newStateId));
@@ -205,7 +186,6 @@ namespace McMd
       //double ratio = exp(oldWeight-newWeight);
       bool   accept = random().metropolis(ratio);
       #endif
-
       if (accept) {
 
          incrementNAccept();
@@ -219,7 +199,6 @@ namespace McMd
  
    void UmbrellaSamplingSemiGrandMove::output()
    {    outputFile_.close();
-       
         std::string fileName = outputFileName_; 
         std::ofstream outputFile;
         fileName += ".dat";

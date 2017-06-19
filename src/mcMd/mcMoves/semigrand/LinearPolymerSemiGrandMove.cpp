@@ -52,7 +52,8 @@ namespace McMd
    {  
       McMove::loadParameters(ar);
       loadParameter<int>(ar, "speciesId", speciesId_);
-
+      loadParameter<int>(ar, "UpperLimit", uLimit_);
+      loadParameter<int>(ar, "LowerLimit", lLimit_);
       // Cast the Species to LinearSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
@@ -66,7 +67,9 @@ namespace McMd
    void LinearPolymerSemiGrandMove::save(Serializable::OArchive& ar)
    {
       McMove::save(ar);
-      ar & speciesId_;  
+      ar & speciesId_; 
+      ar & uLimit_;
+      ar & lLimit_; 
    }
 
    /* 
@@ -103,18 +106,12 @@ namespace McMd
       bool   accept = random().metropolis(ratio);
       #endif
 
-      if (accept && newStateTotal >= Llimit_ && newStateTotal <= Ulimit_) {
-
+      if (accept && newStateTotal >= lLimit_ && newStateTotal <= uLimit_) {
          incrementNAccept();
-
       } else {
-
          // Revert chosen molecule to original state
          speciesPtr_->mutator().setMoleculeState(molecule, oldStateId);
-
       }
-
       return accept;
    }
-
 }

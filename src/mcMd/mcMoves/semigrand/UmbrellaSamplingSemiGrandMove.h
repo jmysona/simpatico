@@ -76,13 +76,11 @@ namespace McMd
       /// Integer index for molecular species.
       int speciesId_;
 
-      double weightSize_;
-      
-      int Ulimit_;
+      int uLimit_;
 
-      int Llimit_;
+      int lLimit_;
  
-      int flipSubtype_;
+      int flipSubType_;
  
       DArray<double> weights_;
 
@@ -94,7 +92,6 @@ namespace McMd
 
       std::string outputFileName_;
       std::string initialWeightFileName_;
-      double crit_;  
       DArray<int> steps_;
       DArray<double> weightTrack_;
       int stepCount_;

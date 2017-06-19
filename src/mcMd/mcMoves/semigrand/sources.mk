@@ -2,7 +2,10 @@ mcMd_mcMoves_semigrand_=
 
 ifdef SIMP_BOND
 mcMd_mcMoves_semigrand_+= \
-    mcMd/mcMoves/semigrand/HomopolymerSemiGrandMove.cpp 
+    mcMd/mcMoves/semigrand/HomopolymerSemiGrandMove.cpp \
+    mcMd/mcMoves/semigrand/LinearPolymerSemiGrandMove.cpp \
+    mcMd/mcMoves/semigrand/UmbrellaSamplingSemiGrandMove.cpp \
+    mcMd/mcMoves/semigrand/WangLandauSemiGrandMove.cpp 
 endif
 
 mcMd_mcMoves_semigrand_SRCS=\
