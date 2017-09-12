@@ -43,37 +43,29 @@ namespace McMd
       // Cast the Species to LinearSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
-         UTIL_THROW("Error: Species must be GeneralpolymerSG");
+         UTIL_THROW("Error: Species must be LinearSG");
       }
       Species* speciesPtr = &system().simulation().species(speciesId_);
       capacity_ = speciesPtr->capacity()+1; 
       mutatorPtr_ = &speciesPtr_->mutator();
       weights_.allocate(capacity_);
-      stateCount_.allocate(capacity_); 
-      read<int>(in, "UpperLimit", uLimit_);
-      read<int>(in, "LowerLimit", lLimit_);
+      read<int>(in, "upperLimit", uLimit_);
+      read<int>(in, "lowerLimit", lLimit_);
       read<std::string>(in, "outputFileName",outputFileName_);
       readOptional<std::string>(in, "initialWeights",initialWeightFileName_);
       std::ifstream weightFile;
       if (initialWeightFileName_!="0") {
-         system().fileMaster().open(initialWeightFileName_, weightFile);
-         int n;
-         double m;
-         while (weightFile >> n >>m) {
-           weights_[n]= m;
-         }
-      } else {
-         for (int x = 0; x < capacity_; ++x) {
-             weights_[x]=0;
-         }
+        system().fileMaster().open(initialWeightFileName_, weightFile);
+        int n;
+        double m;
+        while (weightFile >> n >>m) {
+          weights_[n]= m;
         }
-      std::string fileName = outputFileName_;
-      for (int x = 0; x < capacity_; ++x) {
-        stateCount_[x] = 0; 
+      } else {
+        for (int x = 0; x < capacity_; ++x) {
+          weights_[x]=0;
+        }
       }
-        fileName = outputFileName_+".weights";      
-        system().fileMaster().openOutputFile(fileName, outputFile_);
-        outputFile_ << stepCount_ << "	" << weightSize_ << std::endl;
    }
    /*
    * Load state from an archive.
@@ -90,7 +82,7 @@ namespace McMd
       weights_.allocate(capacity_);      
       loadParameter<int>(ar, "UpperLimit", uLimit_);
       loadParameter<int>(ar, "LowerLimit", lLimit_);
-      loadParameter<DArray>(ar, "initialWeights", weights_);
+      //loadParameter<DArray>(ar, "initialWeights", weights_);
    }
    
 
@@ -107,25 +99,28 @@ namespace McMd
    }
      
 
-   Molecule& UmbrellaSamplingSemiGrandMove::randomSGMolecule(int speciesId, int nSubType, int flipType)
+   Molecule& UmbrellaSamplingSemiGrandMove::randomSGMolecule(int speciesId, int nSubType, int flipType, float combo)
    {
+      if (combo == 1.0) {
+        return system().randomMolecule(speciesId_);
+      }
       int moleculeId,nMol,index,type;
       int count = 0;
       nMol = system().nMolecule(speciesId);
       if (nMol <= 0) {
-         Log::file() << "Number of molecules in species " << speciesId
+        Log::file() << "Number of molecules in species " << speciesId
                      << " = " << nMol << std::endl;
-         UTIL_THROW("Number of molecules in species <= 0");
+        UTIL_THROW("Number of molecules in species <= 0");
       }
       index = simulation().random().uniformInt(0, nSubType);
       for (int i=0; i<nMol; ++i) {
         type = speciesPtr_->mutator().moleculeStateId(system().molecule(speciesId, i));
         if (type==flipType) {
-           if (count==index) {
-              moleculeId = i;
-              return system().molecule(speciesId, moleculeId);
-           }
-           count += 1;
+          if (count==index) {
+            moleculeId = i;
+            return system().molecule(speciesId, moleculeId);
+          }
+          count += 1;
         }
       }
       UTIL_THROW("No molecule selected");
@@ -137,31 +132,24 @@ namespace McMd
    bool UmbrellaSamplingSemiGrandMove::move() 
    { 
       incrementNAttempt();
+      double comboPrefactor = 1.0;
+      int flipType = -1.0;
+      int flipTypeCapacity;
       // Special semigrand selector
       SpeciesMutator* mutatorPtr = &speciesPtr_->mutator();
       int oldStateCount = mutatorPtr->stateOccupancy(0);
-      if  (oldStateCount == Ulimit_) {
-      flipSubtype_ = simulation().random().uniformInt(0,2);
-      //flipSubtype_ = 0;
-      if (flipSubtype_ == 1) {
-        bool accept = false;
-        return accept;
-        }
+      int oldState = mutatorPtr_->stateOccupancy(0);
+      if  (oldStateCount == uLimit_) {
+        comboPrefactor = (double)(uLimit_)/(double)(capacity_-1);
+        flipType = 0;
+        flipTypeCapacity =  mutatorPtr->stateOccupancy(0);
       }
-      if (oldStateCount == Llimit_) {
-      flipSubtype_ = simulation().random().uniformInt(0,2);
-      //flipSubtype_=1;
-      if (flipSubtype_ == 0){
-         bool accept = false;
-         return accept;
-       }
+      if (oldStateCount == lLimit_) {
+        comboPrefactor = (double)(capacity_-1-lLimit_)/(double)(capacity_-1);
+        flipType = 1;
+        flipTypeCapacity =  mutatorPtr->stateOccupancy(1); 
       }
-      if (oldStateCount>Llimit_ && oldStateCount < Ulimit_) {
-      flipSubtype_ = simulation().random().uniformInt(0,2);
-      }
-      int oldState = mutatorPtr->stateOccupancy(0);
-      oldStateCount = mutatorPtr->stateOccupancy(flipSubtype_);
-      Molecule& molecule = randomSGMolecule(speciesId_, oldStateCount, flipSubtype_);
+      Molecule& molecule = randomSGMolecule(speciesId_, flipTypeCapacity, flipType, comboPrefactor);
       #ifndef INTER_NOPAIR
       // Calculate pair energy for the chosen molecule
       double oldEnergy = system().pairPotential().moleculeEnergy(molecule);
@@ -172,27 +160,31 @@ namespace McMd
       speciesPtr_->mutator().setMoleculeState(molecule, newStateId);
       #ifdef INTER_NOPAIR 
       bool   accept = true;
-       #else //ifndef INTER_NOPAIR
+      #else //ifndef INTER_NOPAIR
       // Recalculate pair energy for the molecule
       double newEnergy = system().pairPotential().moleculeEnergy(molecule);
-      double numoWeight = (double)(mutatorPtr->stateOccupancy(oldStateId)+1)/(double)(mutatorPtr->stateOccupancy(newStateId));
       // Decide whether to accept or reject
       int    newState = mutatorPtr_->stateOccupancy(0);
+      if (newState == lLimit_) {
+        comboPrefactor = (double)(capacity_-1)/(double)(capacity_-1-lLimit_);
+      }
+      if (newState == uLimit_) {
+        comboPrefactor = (double)(capacity_-1)/(double)(uLimit_);
+      }
       // Different move if the move is with in the desired range or not
       //int    oldState = newState - stateChange;
       double oldWeight = weights_[oldState];
       double newWeight = weights_[newState];
-      double ratio  = boltzmann(newEnergy - oldEnergy)*exp(oldWeight-newWeight)*numoWeight;
-      //double ratio = exp(oldWeight-newWeight);
+      double oldWeightSG = speciesPtr_->mutator().stateWeight(oldStateId);
+      double newWeightSG = speciesPtr_->mutator().stateWeight(newStateId);
+      double ratio  = boltzmann(newEnergy - oldEnergy)*exp(oldWeight-newWeight)*newWeightSG/oldWeightSG*comboPrefactor;
       bool   accept = random().metropolis(ratio);
       #endif
       if (accept) {
-
-         incrementNAccept();
+        incrementNAccept();
       } else {
-
-         // Revert chosen molecule to original state
-         speciesPtr_->mutator().setMoleculeState(molecule, oldStateId);
+      // Revert chosen molecule to original state
+        speciesPtr_->mutator().setMoleculeState(molecule, oldStateId);
       }
       return accept;
    }

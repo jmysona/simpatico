@@ -64,7 +64,7 @@ namespace McMd
       template <class Archive>
       void serialize(Archive& ar, const unsigned int version);
     
-      Molecule& randomSGMolecule(int speciesId, int typeId, int flipType);
+      Molecule& randomSGMolecule(int speciesId, int typeId, int flipType, float combo);
       /**
       * Generate and accept or reject configuration bias move
       */
