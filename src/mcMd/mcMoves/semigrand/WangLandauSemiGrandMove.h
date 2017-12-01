@@ -63,11 +63,21 @@ namespace McMd
       */
       template <class Archive>
       void serialize(Archive& ar, const unsigned int version);
+
+      /** 
+      *   Picks a random semigrand molecule of the given subtype
+      *   \param specieId       The semigrand spiecies Id
+      *   \param typeId         The subtype
+      *   \param flipType       The type of flip necessary
+      * 
+      **/
     
       Molecule& randomSGMolecule(int speciesId, int typeId, int flipType);
+
       /**
       * Generate and accept or reject configuration bias move
       */
+
       virtual bool move();
       
       virtual void output();
@@ -80,7 +90,7 @@ namespace McMd
 
       double weightSize_;
  
-      Pair<int>   Range_;
+      Pair<int>   range_;
  
       DArray<double> weights_;
 
