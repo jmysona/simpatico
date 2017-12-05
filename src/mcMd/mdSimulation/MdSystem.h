@@ -42,6 +42,9 @@ namespace McMd
    #ifdef SIMP_EXTERNAL
    class ExternalPotential;
    #endif
+   #ifdef SIMP_SPECIAL
+   class SpecialPotential;
+   #endif
    #ifdef SIMP_TETHER
    class TetherPotential;
    #endif
@@ -126,6 +129,8 @@ namespace McMd
       * \param in configuration file input stream
       */
       virtual void readConfig(std::istream& in);
+
+      using System::readConfig;
 
       /**
       * Load the MdSystem configuration from an archive.
@@ -303,6 +308,18 @@ namespace McMd
       ExternalPotential& externalPotential() const;
       #endif
 
+      #ifdef SIMP_SPECIAL
+      /**
+      * Does a special potential exist?.
+      */
+      bool hasSpecialPotential() const;
+
+      /**
+      * Return special potential by reference.
+      */
+      SpecialPotential& specialPotential() const;
+      #endif
+
       #ifdef MCMD_LINK
       /**
       * Does a link potential exist?.
@@ -416,7 +433,7 @@ namespace McMd
       #endif
 
       #ifdef SIMP_BOND
-      /// Pointer to an BondPotential.
+      /// Pointer to a BondPotential.
       BondPotential* bondPotentialPtr_;
       #endif
 
@@ -440,13 +457,18 @@ namespace McMd
       ExternalPotential* externalPotentialPtr_;
       #endif
 
+      #ifdef SIMP_SPECIAL
+      /// Pointer to a SpecialPotential.
+      SpecialPotential* specialPotentialPtr_;
+      #endif
+
       #ifdef MCMD_LINK
       /// Pointer to the MdLinkPotential.
       BondPotential* linkPotentialPtr_;
       #endif
 
       #ifdef SIMP_TETHER
-      /// Pointer to an TetherPotential.
+      /// Pointer to a TetherPotential.
       TetherPotential* tetherPotentialPtr_;
       #endif
 
@@ -572,6 +594,23 @@ namespace McMd
    {
       assert(externalPotentialPtr_);
       return *externalPotentialPtr_;
+   }
+   #endif
+
+   #ifdef SIMP_SPECIAL
+   /*
+   * Does a special potential exist?
+   */
+   inline bool MdSystem::hasSpecialPotential() const
+   {  return bool(specialPotentialPtr_); }
+
+   /*
+   * Return special potential by reference.
+   */
+   inline SpecialPotential& MdSystem::specialPotential() const
+   {
+      assert(specialPotentialPtr_);
+      return *specialPotentialPtr_;
    }
    #endif
 

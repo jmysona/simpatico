@@ -8,11 +8,9 @@
 #include <util/global.h>
 
 #include "McSimulation.h"
-#include "McAnalyzerManager.h"
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
 #include <mcMd/analyzers/Analyzer.h>
-#include <mcMd/mcMoves/McMoveManager.h>
 #include <mcMd/trajectory/TrajectoryReader.h>
 #include <mcMd/generators/Generator.h>
 #include <mcMd/generators/generatorFactory.h>
@@ -64,8 +62,9 @@ namespace McMd
    McSimulation::McSimulation(MPI::Intracomm& communicator)
     : Simulation(communicator),
       system_(),
-      mcMoveManagerPtr_(0),
-      mcAnalyzerManagerPtr_(0),
+      mcMoveManager_(*this),
+      mcAnalyzerManager_(*this),
+      mcCommandManager_(*this),
       paramFilePtr_(0),
       saveFileName_(),
       saveInterval_(0),
@@ -79,12 +78,9 @@ namespace McMd
       system().setSimulation(*this);
       system().setFileMaster(fileMaster());
 
-      // Create McMove and Analyzer managers
-      mcMoveManagerPtr_ = new McMoveManager(*this);
-      mcAnalyzerManagerPtr_ = new McAnalyzerManager(*this);
-
-      // Pass Manager<Analyzer>* to Simulation base class.
-      setAnalyzerManager(mcAnalyzerManagerPtr_);
+      // Pass pointers to managers to Simulation base class.
+      setAnalyzerManager(&mcAnalyzerManager_);
+      setCommandManager(&mcCommandManager_);
    }
    #endif
 
@@ -94,8 +90,9 @@ namespace McMd
    McSimulation::McSimulation()
     : Simulation(),
       system_(),
-      mcMoveManagerPtr_(0),
-      mcAnalyzerManagerPtr_(0),
+      mcMoveManager_(*this),
+      mcAnalyzerManager_(*this),
+      mcCommandManager_(*this),
       paramFilePtr_(0),
       saveFileName_(),
       saveInterval_(0),
@@ -109,36 +106,31 @@ namespace McMd
       system().setSimulation(*this);
       system().setFileMaster(fileMaster());
 
-      // Create McMove and Analyzer managers
-      mcMoveManagerPtr_ = new McMoveManager(*this);
-      mcAnalyzerManagerPtr_ = new McAnalyzerManager(*this);
-
-      // Pass Manager<Analyzer>* to Simulation base class.
-      setAnalyzerManager(mcAnalyzerManagerPtr_);
+      // Pass pointers to managers to Simulation base class.
+      setAnalyzerManager(&mcAnalyzerManager_);
+      setCommandManager(&mcCommandManager_);
    }
 
    /*
    * Destructor.
    */
    McSimulation::~McSimulation()
-   {
-      delete mcMoveManagerPtr_;
-      delete mcAnalyzerManagerPtr_;
-   }
+   {}
 
    /*
    * Process command line options.
    */
    void McSimulation::setOptions(int argc, char **argv)
    {
-      bool eflag = false;  // echo
-      bool rFlag = false;  // restart file
+      bool qflag = false;  // query compile time options
+      bool eflag = false;  // echo parameter file
+      bool rFlag = false;  // read restart file
       bool pFlag = false;  // param file 
       bool cFlag = false;  // command file 
       bool iFlag = false;  // input prefix
       bool oFlag = false;  // output prefix
       #ifdef MCMD_PERTURB
-      bool  fflag = false;  // free energy perturbation
+      bool fflag = false;  // free energy perturbation
       #endif
       char* rarg = 0;
       char* pArg = 0;
@@ -149,8 +141,11 @@ namespace McMd
       // Read program arguments
       int c;
       opterr = 0;
-      while ((c = getopt(argc, argv, "er:p:c:i:o:f")) != -1) {
+      while ((c = getopt(argc, argv, "qer:p:c:i:o:f")) != -1) {
          switch (c) {
+         case 'q':
+           qflag = true;
+           break;
          case 'e':
             eflag = true;
             break;
@@ -185,6 +180,13 @@ namespace McMd
          }
       }
    
+  
+      #ifndef UTIL_MPI
+      if (qflag) {
+         outputOptions(Log::file());
+      }
+      #endif
+ 
       // Set flag to echo parameters as they are read.
       if (eflag) {
          Util::ParamComponent::setEcho(true);
@@ -264,12 +266,12 @@ namespace McMd
       readParamComposite(in, system());
 
       // Read Monte Carlo Moves
-      assert(mcMoveManagerPtr_);
-      readParamComposite(in, *mcMoveManagerPtr_);
+      readParamComposite(in, mcMoveManager());
 
-      // Read Analyzers (optionally)
+      // Read Analyzer and Command managers (optionally)
       Analyzer::baseInterval = 0; // default value
       readParamCompositeOptional(in, analyzerManager());
+      readParamCompositeOptional(in, commandManager());
 
       // Parameters for writing restart files (optionally)
       saveInterval_ = 0; // default value
@@ -319,8 +321,9 @@ namespace McMd
 
       Simulation::loadParameters(ar);
       loadParamComposite(ar, system());
-      loadParamComposite(ar, *mcMoveManagerPtr_);
+      loadParamComposite(ar, mcMoveManager());
       loadParamComposite(ar, analyzerManager());
+      loadParamComposite(ar, commandManager());
       loadParameter<int>(ar, "saveInterval", saveInterval_);
       if (saveInterval_ > 0) {
          loadParameter<std::string>(ar, "saveFileName", saveFileName_);
@@ -339,8 +342,9 @@ namespace McMd
    {
       Simulation::save(ar);
       system().saveParameters(ar);
-      mcMoveManagerPtr_->save(ar);
+      mcMoveManager().save(ar);
       analyzerManager().save(ar);
+      commandManager().save(ar);
       ar << saveInterval_;
       if (saveInterval_ > 0) {
          ar << saveFileName_;
@@ -453,202 +457,13 @@ namespace McMd
             if (command == "FINISH") {
                Log::file() << std::endl;
                readNext = false;
-            } else
-            if (command == "SET_CONFIG_IO") {
-               std::string classname;
-               inBuffer >> classname;
-               Log::file() << Str(classname, 15) << std::endl;
-               system().setConfigIo(classname);
-            } else
-            if (command == "READ_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openInputFile(filename, inputFile);
-               system().readConfig(inputFile);
-               inputFile.close();
-            } else
-            if (command == "SIMULATE") {
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << "  " << endStep << std::endl;
-               bool isContinuation = false;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "CONTINUE") {
-               if (iStep_ == 0) {
-                  UTIL_THROW("Attempt to continue when iStep_ == 0");
+            } else {
+               bool success;
+               success = commandManager().readCommand(command, inBuffer);
+               if (!success)  {
+                  Log::file() << "Error: Unknown command  " << std::endl;
+                  readNext = false;
                }
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << Int(endStep, 15) << std::endl;
-               bool isContinuation = true;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "ANALYZE_CONFIGS") {
-               int min, max;
-               inBuffer >> min >> max >> filename;
-               Log::file() << "  " <<  min << "  " <<  max
-                           << "  " <<  filename << std::endl;
-               analyzeConfigs(min, max, filename);
-            } else
-            if (command == "ANALYZE_TRAJECTORY") {
-               std::string classname;
-               std::string filename;
-               int min, max;
-               inBuffer >> min >> max >> classname >> filename;
-               Log::file() << " " << Str(classname,15) 
-                           << " " << Str(filename, 15)
-                           << std::endl;
-               analyzeTrajectory(min, max, classname, filename);
-            } else 
-            if (command == "WRITE_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               system().writeConfig(outputFile);
-               outputFile.close();
-            } else
-            if (command == "WRITE_PARAM") {
-               inBuffer >> filename;
-               Log::file() << "  " << filename << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               writeParam(outputFile);
-               outputFile.close();
-            } else 
-            if (command == "GENERATE_MOLECULES") {
-               DArray<double> diameters;
-               DArray<int> capacities;
-               diameters.allocate(nAtomType());
-               capacities.allocate(nSpecies());
-
-               // Parse command
-               inBuffer >> system().boundary();
-               Log::file() << "\n  Boundary:    " << system().boundary();
-               Label capacityLabel("Capacities:");
-               inBuffer >> capacityLabel;
-               Log::file() << "\n  Capacities: ";
-               for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
-                  inBuffer >> capacities[iSpecies];
-                  Log::file() << "  " << capacities[iSpecies];
-               }
-               Label diameterLabel("Diameters:");
-               inBuffer >> diameterLabel;
-               Log::file() << "\n  Diameters: ";
-               for (int iType=0; iType < nAtomType(); iType++) {
-                  inBuffer >> diameters[iType];
-                  Log::file() << "  " << diameters[iType];
-               }
-               Log::file() << std::endl;
-
-               system().generateMolecules(capacities, diameters);
-
-            } else
-            if (command == "DEFORM_CELL") {
-               
-               // Read in configuration from file
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openInputFile(filename, inputFile);
-               system().readConfig(inputFile);
-               inputFile.close();
-
-               System::MoleculeIterator molIter;
-               Molecule::AtomIterator atomIter;
-               for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
-                  system().begin(iSpec, molIter);
-                  for ( ; molIter.notEnd(); ++molIter) {
-                     molIter->begin(atomIter);
-                     for ( ; atomIter.notEnd(); ++atomIter) {
-                        Vector cartPosition, genPosition;
-                        cartPosition = atomIter->position();
-                        system().boundary().transformCartToGen(cartPosition, genPosition);
-                        atomIter->position() = genPosition;
-                     }
-                  }
-               }
-
-               // Read in new boundary
-               inBuffer >> system().boundary();
-               Log::file() << "  " << system().boundary();
-               Log::file() << std::endl;
-
-               for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
-                  system().begin(iSpec, molIter);
-                  for ( ; molIter.notEnd(); ++molIter) {
-                     molIter->begin(atomIter);
-                     for ( ; atomIter.notEnd(); ++atomIter) {
-                        Vector cartPosition, genPosition;
-                        genPosition = atomIter->position();
-                        system().boundary().transformGenToCart(genPosition, cartPosition);
-                        atomIter->position() = cartPosition;
-                     }
-                  }
-               }
-
-               // Write out configuration to file
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               system().writeConfig(outputFile);
-               outputFile.close();
-
-               #ifndef SIMP_NOPAIR 
-               // Generate cell list
-               system().pairPotential().buildCellList();
-               #endif
-
-            } else
-            #ifndef UTIL_MPI
-            #ifndef SIMP_NOPAIR
-            if (command == "SET_PAIR") {
-               std::string paramName;
-               int typeId1, typeId2; 
-               double value;
-               inBuffer >> paramName >> typeId1 >> typeId2 >> value;
-               Log::file() << "  " <<  paramName 
-                           << "  " <<  typeId1 << "  " <<  typeId2
-                           << "  " <<  value << std::endl;
-               system().pairPotential()
-                       .set(paramName, typeId1, typeId2, value);
-            } else 
-            #endif 
-            #ifdef SIMP_BOND
-            if (command == "SET_BOND") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().bondPotential().set(paramName, typeId, value);
-            } else 
-            #endif
-            #ifdef SIMP_ANGLE
-            if (command == "SET_ANGLE") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().anglePotential().set(paramName, typeId, value);
-            } else 
-            #endif 
-            #ifdef SIMP_DIHEDRAL
-            if (command == "SET_DIHEDRAL") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().dihedralPotential().set(paramName, typeId, value);
-            } else 
-            #endif // ifdef SIMP_DIHEDRAL
-            #endif // ifndef UTIL_MPI
-            {
-               Log::file() << "  Error: Unknown command  " << std::endl;
-               readNext = false;
             }
 
          }
@@ -666,6 +481,11 @@ namespace McMd
       readCommands(fileMaster().commandFile()); 
    }
 
+   /*
+   * Read and execute a single command.
+   */
+   bool McSimulation::readCommand(std::string command, std::istream& in)
+   {  return commandManager().readCommand(command, in); }
 
    /*
    * Run this MC simulation.
@@ -678,12 +498,11 @@ namespace McMd
 
       // Setup before main loop
       if (isContinuation) {
-         Log::file() << "Restarting from iStep = " 
+         Log::file() << "Continuing from iStep = " 
                      << iStep_ << std::endl;
       } else {
          iStep_ = 0;
          analyzerManager().setup();
-         mcMoveManagerPtr_->setup();
       }
       int beginStep = iStep_;
       int nStep = endStep - beginStep;
@@ -714,7 +533,7 @@ namespace McMd
          }
 
          // Choose and attempt an McMove
-         mcMoveManagerPtr_->chooseMove().move();
+         mcMoveManager().chooseMove().move();
 
          #ifdef UTIL_MPI
          #ifdef MCMD_PERTURB
@@ -764,7 +583,7 @@ namespace McMd
       }
 
       // Output results of move statistics to files
-      mcMoveManagerPtr_->output();
+      mcMoveManager().output();
 
       // Output time for the run
       Log::file() << std::endl;
@@ -787,12 +606,12 @@ namespace McMd
            << setw(12) << right << "Accepted"
            << setw(15) << right << "AcceptRate"
            << endl;
-      int nMove = mcMoveManagerPtr_->size();
+      int nMove = mcMoveManager().size();
       for (int iMove = 0; iMove < nMove; ++iMove) {
-         attempt = (*mcMoveManagerPtr_)[iMove].nAttempt();
-         accept  = (*mcMoveManagerPtr_)[iMove].nAccept();
+         attempt = mcMoveManager()[iMove].nAttempt();
+         accept  = mcMoveManager()[iMove].nAccept();
          Log::file() << setw(32) << left 
-              << mcMoveManagerPtr_->className(iMove)
+              << mcMoveManager().className(iMove)
               << setw(12) << right << attempt
               << setw(12) << accept
               << setw(15) << fixed << setprecision(6)
@@ -834,7 +653,6 @@ namespace McMd
       UTIL_CHECK(max > min);
       UTIL_CHECK(Analyzer::baseInterval > 0);
       UTIL_CHECK(analyzerManager().size() > 0);
-      
 
       Timer             timer;
       std::string       filename;
@@ -966,7 +784,7 @@ namespace McMd
    * Get the McMove factory.
    */
    Factory<McMove>& McSimulation::mcMoveFactory()
-   {  return mcMoveManagerPtr_->factory(); }
+   {  return mcMoveManager().factory(); }
 
    /*
    * Check validity: return true if valid, or throw Exception.

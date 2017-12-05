@@ -71,6 +71,9 @@ namespace McMd
    #ifdef SIMP_EXTERNAL
    class ExternalPotential;
    #endif
+   #ifdef SIMP_SPECIAL
+   class SpecialFactory;
+   #endif
    #ifdef MCMD_LINK
    class LinkPotential;
    class LinkMaster;
@@ -230,6 +233,17 @@ namespace McMd
       */
       virtual void readConfig(std::istream& in);
 
+      /** 
+      * Open, read and close configuration file.
+      *
+      * Uses FileMaster::openInputFile(filename) to open the file,
+      * which appends an input file prefix to the path. Calls the
+      * function readConfig(std::istream& ) internally. 
+      *
+      * \param filename configuration file name
+      */
+      void readConfig(std::string filename);
+
       /**
       * Write system configuration to a specified ostream.
       *
@@ -240,6 +254,17 @@ namespace McMd
       * \param out configuration file output stream
       */
       void writeConfig(std::ostream& out);
+
+      /** 
+      * Open, write and close a configuration file.
+      *
+      * Uses FileMaster::openOutputFile(filename) to open the file,
+      * which appends a output file prefix to the path. Calls the
+      * function readConfig(std::istream& ) internally. 
+      *
+      * \param filename configuration file name
+      */
+      void writeConfig(std::string filename);
 
       /**
       * Load configuration.
@@ -467,6 +492,18 @@ namespace McMd
       * Return external potential style string.
       */
       std::string externalStyle() const;
+      #endif
+
+      #ifdef SIMP_SPECIAL
+      /**
+      * Get the associated SpecialFactory by reference.
+      */
+      SpecialFactory& specialFactory();
+
+      /**
+      * Return special potential style string.
+      */
+      std::string specialStyle() const;
       #endif
 
       #ifdef MCMD_LINK
@@ -857,6 +894,11 @@ namespace McMd
       Factory<ExternalPotential>* externalFactoryPtr_;
       #endif
   
+      #ifdef SIMP_SPECIAL
+      /// Pointer to SpecialFactory
+      SpecialFactory* specialFactoryPtr_;
+      #endif
+  
       #ifdef MCMD_LINK
       /// Pointer to Link Factory
       Factory<BondPotential>* linkFactoryPtr_;
@@ -923,6 +965,11 @@ namespace McMd
       #ifdef SIMP_EXTERNAL
       /// Name of external potential style.
       std::string externalStyle_;
+      #endif
+
+      #ifdef SIMP_SPECIAL
+      /// Name of special potential style.
+      std::string specialStyle_;
       #endif
 
       #ifdef MCMD_LINK

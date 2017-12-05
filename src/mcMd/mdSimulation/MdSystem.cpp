@@ -39,6 +39,10 @@
 #ifdef SIMP_EXTERNAL
 #include <mcMd/potentials/external/ExternalPotential.h>
 #endif
+#ifdef SIMP_SPECIAL
+#include <mcMd/potentials/special/SpecialPotential.h>
+#include <mcMd/potentials/special/SpecialFactory.h>
+#endif
 #ifdef MCMD_LINK
 #include <mcMd/links/LinkMaster.h>
 #endif
@@ -85,6 +89,9 @@ namespace McMd
       #ifdef SIMP_EXTERNAL
       externalPotentialPtr_(0),
       #endif
+      #ifdef SIMP_SPECIAL
+      specialPotentialPtr_(0),
+      #endif
       #ifdef MCMD_LINK
       linkPotentialPtr_(0),
       #endif
@@ -103,7 +110,7 @@ namespace McMd
    }
 
    /*
-   * Constructor, copy of a System.
+   * Constructor, copy of an System.
    */
    MdSystem::MdSystem(McSystem& system)
     : System(system),
@@ -124,6 +131,9 @@ namespace McMd
       #endif
       #ifdef SIMP_EXTERNAL
       externalPotentialPtr_(0),
+      #endif
+      #ifdef SIMP_SPECIAL
+      specialPotentialPtr_(0),
       #endif
       #ifdef MCMD_LINK
       linkPotentialPtr_(0),
@@ -175,6 +185,11 @@ namespace McMd
          externalPotentialPtr_ = &system.externalPotential();
       }
       #endif
+      // #ifdef SIMP_SPECIAL
+      // if (system.hasSpecialPotential()) {
+      //   specialPotentialPtr_ = &system.specialPotential();
+      // }
+      // #endif
       #ifdef MCMD_LINK
       if (system.hasLinkPotential()) {
          linkPotentialPtr_ = &system.linkPotential();
@@ -211,11 +226,14 @@ namespace McMd
       #ifdef SIMP_COULOMB
       if (!isCopy() && coulombPotentialPtr_) delete coulombPotentialPtr_;
       #endif
-      #ifdef MCMD_LINK
-      if (!isCopy() && linkPotentialPtr_) delete linkPotentialPtr_;
-      #endif
       #ifdef SIMP_EXTERNAL
       if (!isCopy() && externalPotentialPtr_) delete externalPotentialPtr_;
+      #endif
+      #ifdef SIMP_SPECIAL
+      if (!isCopy() && specialPotentialPtr_) delete specialPotentialPtr_;
+      #endif
+      #ifdef MCMD_LINK
+      if (!isCopy() && linkPotentialPtr_) delete linkPotentialPtr_;
       #endif
       #ifdef SIMP_TETHER
       if (!isCopy() && tetherPotentialPtr_) delete tetherPotentialPtr_;
@@ -326,6 +344,18 @@ namespace McMd
                UTIL_THROW("Failed attempt to create externalPotential");
             }
             readParamComposite(in, *externalPotentialPtr_);
+         }
+         #endif
+
+         #ifdef SIMP_SPECIAL
+         assert(specialPotentialPtr_ == 0);
+         if (simulation().hasSpecial() > 0) {
+            specialPotentialPtr_ =
+                       specialFactory().mdFactory(specialStyle(), *this);
+            if (specialPotentialPtr_ == 0) {
+               UTIL_THROW("Failed attempt to create specialPotential");
+            }
+            readParamComposite(in, *specialPotentialPtr_);
          }
          #endif
 
@@ -468,6 +498,18 @@ namespace McMd
          }
          #endif
 
+         #ifdef SIMP_SPECIAL
+         assert(specialPotentialPtr_ == 0);
+         if (simulation().hasSpecial() > 0) {
+            specialPotentialPtr_ =
+                       specialFactory().mdFactory(specialStyle(), *this);
+            if (specialPotentialPtr_ == 0) {
+               UTIL_THROW("Failed attempt to create specialPotential");
+            }
+            loadParamComposite(ar, *specialPotentialPtr_);
+         }
+         #endif
+
          #ifdef MCMD_LINK
          assert(linkPotentialPtr_ == 0);
          if (simulation().nLinkType() > 0) {
@@ -568,6 +610,11 @@ namespace McMd
          #ifdef SIMP_EXTERNAL
          if (simulation().hasExternal()) {
             externalPotential().save(ar);
+         }
+         #endif
+         #ifdef SIMP_SPECIAL
+         if (simulation().hasSpecial()) {
+            specialPotential().save(ar);
          }
          #endif
          #ifdef SIMP_TETHER
@@ -824,6 +871,11 @@ namespace McMd
          externalPotential().addForces();
       }
       #endif
+      #ifdef SIMP_SPECIAL
+      if (hasSpecialPotential()) {
+         specialPotential().addForces();
+      }
+      #endif
       #ifdef MCMD_LINK
       if (hasLinkPotential()) {
          linkPotential().addForces();
@@ -843,6 +895,7 @@ namespace McMd
    {
       double energy = 0.0;
       #ifndef SIMP_NOPAIR
+      // In charged system, this only returns non-Coulombic pair energy.
       energy += pairPotential().energy();
       #endif
       #ifdef SIMP_BOND
@@ -862,12 +915,17 @@ namespace McMd
       #endif
       #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
-         energy += coulombPotential().kSpaceEnergy();
+         energy += coulombPotential().energy();
       }
       #endif
       #ifdef SIMP_EXTERNAL
       if (hasExternalPotential()) {
          energy += externalPotential().energy();
+      }
+      #endif
+      #ifdef SIMP_SPECIAL
+      if (hasSpecialPotential()) {
+         energy += specialPotential().energy();
       }
       #endif
       #ifdef MCMD_LINK
@@ -909,6 +967,16 @@ namespace McMd
       #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().unsetEnergy();
+      }
+      #endif
+      #ifdef SIMP_EXTERNAL
+      if (hasExternalPotential()) {
+         externalPotential().unsetEnergy();
+      }
+      #endif
+      #ifdef SIMP_SPECIAL
+      if (hasSpecialPotential()) {
+         specialPotential().unsetEnergy();
       }
       #endif
    }
@@ -1016,6 +1084,14 @@ namespace McMd
          stress += dStress;
       }
       #endif
+      #ifdef SIMP_SPECIAL
+      if (hasSpecialPotential()) {
+         if (specialPotential().createsStress()) {
+            specialPotential().computeStress(dStress);
+            stress += dStress;
+         }
+      }
+      #endif
       #ifdef MCMD_LINK
       if (hasLinkPotential()) {
          linkPotential().computeStress(dStress);
@@ -1100,6 +1176,14 @@ namespace McMd
          coulombPotential().unsetStress();
       }
       #endif
+      #ifdef SIMP_SPECIAL
+      if (hasSpecialPotential()) {
+         if (specialPotential().createsStress()) {
+            specialPotential().unsetStress();
+         }
+      }
+      #endif
+
    }
 
    // Miscellaneous member functions

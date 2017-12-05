@@ -15,6 +15,9 @@ TEST=tools/tests/Test
 all: $(tools_tests_OBJS) $(BLD_DIR)/$(TEST)
 
 run: $(tools_tests_OBJS) $(BLD_DIR)/$(TEST)
+	$(BLD_DIR)/$(TEST) $(SRC_DIR)/tools/tests/ 
+
+quiet: $(tools_tests_OBJS) $(BLD_DIR)/$(TEST)
 	$(BLD_DIR)/$(TEST) $(SRC_DIR)/tools/tests/ > log
 	@echo `grep failed log` ", "\
               `grep successful log` "in tools/tests/log" > count
