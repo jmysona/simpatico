@@ -93,7 +93,7 @@ namespace McMd
      loadParameter<double>(ar, "weightStep", weightSize_); 
      loadParameter<std::string>(ar, "outputFileName",outputFileName_);
      // Figure out how to load weights      
-     // loadParameter< DArray<double> >(ar, "weights", weights_);
+//     ar & weights_;
    }
 
    /*
