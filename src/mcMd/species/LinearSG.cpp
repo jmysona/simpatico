@@ -40,11 +40,13 @@ namespace McMd
 
    /*
    * Call general Species::readParameters() .
-   */
+   * Doesn't seem to do anything
+   
    void LinearSG::readParameters(std::istream& in)
    {
       Species::readParameters(in);
    }
+   */
 
    /*
    * Read atom structure and two sets of atom type ids.
@@ -78,6 +80,78 @@ namespace McMd
       double sum = weightRatio_ + 1.0;
       mutator().setWeight(0, weightRatio_/sum);
       mutator().setWeight(1, 1.0/sum);
+   }
+
+   void LinearSG::loadSpeciesParam(Serializable::IArchive &ar)
+   {
+      loadParameter<int>(ar,"nAtom", nAtom_);
+      nBond_  = nAtom_ - 1;
+      #ifdef SIMP_ANGLE
+      hasAngles_ = 0;
+      loadParameter<int>(ar,"hasAngles", hasAngles_, false);
+      if (hasAngles_) {
+         nAngle_ = nBond_ - 1;
+         if (nAngle_ > 0) {
+            loadParameter<int>(ar,"angleType", angleType_);
+         }
+      } else {
+         nAngle_ = 0;
+      }
+      #endif
+      #ifdef SIMP_DIHEDRAL
+      hasDihedrals_ = 0;
+      loadParameter<int>(ar,"hasDihedrals", hasDihedrals_, false);
+      if (hasDihedrals_) {
+         if (nAtom_ > 3) {
+            nDihedral_ = nAtom_ - 3;
+         } else {
+            nDihedral_ = 0;
+         }
+         if (nDihedral_ > 0) {
+            loadParameter<int>(ar, "dihedralType", dihedralType_);
+         }
+      } else {
+         nDihedral_ = 0;
+      }
+      #endif
+      buildLinear();
+      loadParameter<Pair <int> >(ar, "typeIds", typeIds_);
+      
+      ar & beadTypeIds1_;
+      ar & beadTypeIds2_;
+
+      loadParameter<double>(ar, "weightRatio", weightRatio_);
+      allocateSpeciesMutator(capacity(), 2);
+
+      // Set statistical weights
+      double sum = weightRatio_ + 1.0;
+      mutator().setWeight(0, weightRatio_/sum);
+      mutator().setWeight(1, 1.0/sum);
+   }
+
+   /*
+   * Save internal state to an archive.
+   */
+   void LinearSG::save(Serializable::OArchive &ar)
+   {
+      ar << moleculeCapacity_;
+      ar << nAtom_;
+      ar << typeIds_;
+      ar << beadTypeIds1_;
+      ar << beadTypeIds2_;
+      ar << weightRatio_;
+      #ifdef SIMP_ANGLE
+      Parameter::saveOptional(ar, hasAngles_, hasAngles_);
+      if (hasAngles_ && nAngle_ > 0) {
+         ar << angleType_;
+      }
+      #endif
+      #ifdef SIMP_DIHEDRAL
+      Parameter::saveOptional(ar, hasDihedrals_, hasDihedrals_);
+      if (hasDihedrals_ && nDihedral_ > 0) {
+         ar << dihedralType_;
+      }
+      #endif
    }
 
    /*
