@@ -124,7 +124,7 @@ namespace McMd
 
       /// Ratio of statistical weights for typeId[0]/typeId[1]
       double weightRatio_;
-
+   
    };
 
 }

@@ -46,12 +46,12 @@ namespace McMd
      if (!speciesPtr_) {
        UTIL_THROW("Error: Species must be LinearSG");
      }
-     read<Pair <int> >(in, "range", range_);
-     if (range_[1]-range_[0] < 0) {
+     read<int>(in, "upperLimit", uLimit_);
+     read<int>(in, "lowerLimit", lLimit_);
+     if (uLimit_-lLimit_ < 0) {
        UTIL_THROW("Error: Total range is negative");
      }
-     Species* speciesPtr = &system().simulation().species(speciesId_);
-     capacity_ = speciesPtr->capacity()+1;
+     capacity_ = speciesPtr_->capacity()+1;
      
      mutatorPtr_ = &speciesPtr_->mutator();
      weights_.allocate(capacity_);
@@ -88,12 +88,18 @@ namespace McMd
    {  
      McMove::loadParameters(ar);
      loadParameter<int>(ar, "speciesId", speciesId_);
-     loadParameter<Pair <int> >(ar, "range", range_);
-     weights_.allocate(capacity_);      
+     speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
+     if (!speciesPtr_) {
+       UTIL_THROW("Error: Species must be LinearSG");
+     }
+     mutatorPtr_ = &speciesPtr_->mutator();
+     loadParameter<int>(ar, "upperLimit", uLimit_);
+     loadParameter<int>(ar, "lowerLimit", lLimit_);
      loadParameter<double>(ar, "weightStep", weightSize_); 
      loadParameter<std::string>(ar, "outputFileName",outputFileName_);
-     // Figure out how to load weights      
-//     ar & weights_;
+     loadParameter<double>(ar,"flatnessCriteria",crit_);
+     ar & weights_;
+     ar & stateCount_;
    }
 
    /*
@@ -102,11 +108,15 @@ namespace McMd
    void WangLandauSemiGrandMove::save(Serializable::OArchive& ar)
    {
      McMove::save(ar);
-     ar & speciesId_; 
-     ar & range_; 
-     ar & weightSize_;
-     ar & outputFileName_;
-     ar & weights_;
+     ar << speciesId_; 
+     ar << uLimit_;
+     ar << lLimit_;
+     ar << weightSize_;
+     ar << outputFileName_;
+     ar << crit_;
+     ar << capacity_; 
+     ar << weights_;
+     ar << stateCount_;
    }
    // Determine if it is time to adapt the step size and if so do such
    void WangLandauSemiGrandMove::stepAdapt()
@@ -114,12 +124,12 @@ namespace McMd
      // Determine if the histogram is sufficiently flat
      bool flat = true;
      int movesMade = 0;
-     for (int y = range_[0]; y <= range_[1]; ++y) {
+     for (int y = lLimit_; y <= uLimit_; ++y) {
        movesMade = movesMade + stateCount_[y];
      }
-     double binAve = movesMade/(range_[1]-range_[0]+1);
+     double binAve = movesMade/(uLimit_-lLimit_+1);
      
-     for (int z = range_[0]; z <= range_[1]; ++z) {
+     for (int z = lLimit_; z <= uLimit_; ++z) {
        if (std::abs(stateCount_[z]-binAve)/binAve > crit_) {
        flat = false;
        }
@@ -179,8 +189,8 @@ namespace McMd
      // Special semigrand selector
      int oldState = mutatorPtr_->stateOccupancy(0);
      int nMolecule = system().nMolecule(speciesId_);
-     if (oldState == range_[1] || oldState == range_[0]) {
-       if (oldState == range_[1]) {
+     if (oldState == uLimit_ || oldState == lLimit_) {
+       if (oldState == uLimit_) {
          if (simulation().random().uniformInt(1,nMolecule+1) > oldState) {
            bool accept = false;
            int state = mutatorPtr_->stateOccupancy(0);
@@ -193,7 +203,7 @@ namespace McMd
            flipType_=0;
          }
        }
-       if (oldState == range_[0]) {
+       if (oldState == lLimit_) {
          if (simulation().random().uniformInt(1,nMolecule+1) <= oldState) {
            bool accept =false;
            int state = mutatorPtr_->stateOccupancy(0);
@@ -207,7 +217,7 @@ namespace McMd
          }  
        }
      } else
-     if (oldState > range_[1]) {
+     if (oldState > uLimit_) {
        flipType_=0;
        Molecule& molecule = randomSGMolecule(speciesId_, oldState,flipType_);
        speciesPtr_->mutator().setMoleculeState(molecule,1);
@@ -215,7 +225,7 @@ namespace McMd
        incrementNAccept();
        return accept;
      } else
-     if (oldState < range_[0]) {
+     if (oldState < lLimit_) {
        flipType_=1;
        Molecule& molecule = randomSGMolecule(speciesId_, oldState,flipType_);
        speciesPtr_->mutator().setMoleculeState(molecule,0);

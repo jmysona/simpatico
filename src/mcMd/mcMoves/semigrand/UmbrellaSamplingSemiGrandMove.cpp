@@ -45,8 +45,7 @@ namespace McMd
       if (!speciesPtr_) {
          UTIL_THROW("Error: Species must be LinearSG");
       }
-      Species* speciesPtr = &system().simulation().species(speciesId_);
-      capacity_ = speciesPtr->capacity()+1; 
+      capacity_ = speciesPtr_->capacity()+1; 
       mutatorPtr_ = &speciesPtr_->mutator();
       weights_.allocate(capacity_);
       read<int>(in, "upperLimit", uLimit_);
@@ -79,10 +78,10 @@ namespace McMd
       if (!speciesPtr_) {
          UTIL_THROW("Species is not a LinearSG");
       }
-      weights_.allocate(capacity_);      
       loadParameter<int>(ar, "UpperLimit", uLimit_);
       loadParameter<int>(ar, "LowerLimit", lLimit_);
-      //loadParameter<DArray>(ar, "initialWeights", weights_);
+      mutatorPtr_ = &speciesPtr_->mutator();
+      ar & weights_;
    }
    
 
@@ -136,18 +135,17 @@ namespace McMd
       int flipType = -1.0;
       int flipTypeCapacity;
       // Special semigrand selector
-      SpeciesMutator* mutatorPtr = &speciesPtr_->mutator();
-      int oldStateCount = mutatorPtr->stateOccupancy(0);
+      int oldStateCount = mutatorPtr_->stateOccupancy(0);
       int oldState = mutatorPtr_->stateOccupancy(0);
       if  (oldStateCount == uLimit_) {
         comboPrefactor = (double)(uLimit_)/(double)(capacity_-1);
         flipType = 0;
-        flipTypeCapacity =  mutatorPtr->stateOccupancy(0);
+        flipTypeCapacity =  mutatorPtr_->stateOccupancy(0);
       }
       if (oldStateCount == lLimit_) {
         comboPrefactor = (double)(capacity_-1-lLimit_)/(double)(capacity_-1);
         flipType = 1;
-        flipTypeCapacity =  mutatorPtr->stateOccupancy(1); 
+        flipTypeCapacity =  mutatorPtr_->stateOccupancy(1); 
       }
       Molecule& molecule = randomSGMolecule(speciesId_, flipTypeCapacity, flipType, comboPrefactor);
       #ifndef INTER_NOPAIR

@@ -90,7 +90,9 @@ namespace McMd
 
       double weightSize_;
  
-      Pair<int>   range_;
+      int uLimit_;
+
+      int lLimit_;
  
       DArray<double> weights_;
 

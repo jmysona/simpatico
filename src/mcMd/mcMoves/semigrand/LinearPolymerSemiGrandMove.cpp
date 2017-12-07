@@ -35,8 +35,8 @@ namespace McMd
       // Read parameters
       readProbability(in);
       read<int>(in, "speciesId", speciesId_);
-      read<int>(in, "UpperLimit", uLimit_);
-      read<int>(in, "LowerLimit", lLimit_);
+      read<int>(in, "upperLimit", uLimit_);
+      read<int>(in, "lowerLimit", lLimit_);
       // Cast the Species to HomopolymerSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
@@ -52,8 +52,8 @@ namespace McMd
    {  
       McMove::loadParameters(ar);
       loadParameter<int>(ar, "speciesId", speciesId_);
-      loadParameter<int>(ar, "UpperLimit", uLimit_);
-      loadParameter<int>(ar, "LowerLimit", lLimit_);
+      loadParameter<int>(ar, "upperLimit", uLimit_);
+      loadParameter<int>(ar, "lowerLimit", lLimit_);
       // Cast the Species to LinearSG
       speciesPtr_ = dynamic_cast<LinearSG*>(&(simulation().species(speciesId_)));
       if (!speciesPtr_) {
