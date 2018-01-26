@@ -13,6 +13,7 @@
 #include <mcMd/configIos/ConfigIoFactory.h>
 #include <mcMd/trajectory/TrajectoryReader.h>
 #include <mcMd/trajectory/TrajectoryReaderFactory.h>
+#include <mcMd/species/SpeciesMutator.h>
 
 #ifndef SIMP_NOPAIR
 #include <mcMd/potentials/pair/PairFactory.h>
@@ -697,6 +698,8 @@ namespace McMd
    void System::loadConfig(Serializable::IArchive &ar)
    {
       ar >> boundary();
+      int subType;
+      bool isMutable = false;
 
       Molecule* molPtr;
       Molecule::AtomIterator atomIter;
@@ -705,6 +708,12 @@ namespace McMd
 
       for (int iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
          ar >> iSpeciesIn;
+         if (simulation().species(iSpecies).isMutable()) {
+           isMutable = true;
+         } else {
+           isMutable = false;
+         }
+         std::cout << iSpecies << "  " << iSpeciesIn << '\n';
          if (iSpeciesIn != iSpecies) {
             UTIL_THROW("Error: iSpeciesIn != iSpecies");
          }
@@ -714,6 +723,11 @@ namespace McMd
             addMolecule(*molPtr);
             if (molPtr != &molecule(iSpecies, iMol)) {
                UTIL_THROW("Molecule index error");
+            }
+            if (isMutable) {
+               ar >> subType;
+               std::cout << subType << '\n';
+               simulation().species(iSpecies).mutator().setMoleculeState(*molPtr, subType);
             }
             molPtr->begin(atomIter); 
             for ( ; atomIter.notEnd(); ++atomIter) {
@@ -734,9 +748,10 @@ namespace McMd
    * Save configuration to an archive.
    */
    void System::saveConfig(Serializable::OArchive& ar)
-   {
+   { 
       ar << boundary();
-
+      int subType;
+      bool isMutable = false;
       System::MoleculeIterator molIter;
       Molecule::AtomIterator atomIter;
       int nMoleculeOut;
@@ -744,10 +759,21 @@ namespace McMd
 
       for (int iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
          ar << iSpecies;
+         if (simulation().species(iSpecies).isMutable()) {
+           isMutable = true;
+         } else {
+           isMutable = false;
+         }
          nMoleculeOut = nMolecule(iSpecies);
          ar << nMoleculeOut;
          begin(iSpecies, molIter); 
          for ( ; molIter.notEnd(); ++molIter) {
+            if (isMutable) {
+              //Why does this work?????
+              std::cout<< simulation().species(iSpecies).mutator().moleculeStateId(*molIter) << '\n';
+              subType = simulation().species(iSpecies).mutator().moleculeStateId(*molIter);
+              ar <<  subType;
+            }
             molIter->begin(atomIter); 
             for ( ; atomIter.notEnd(); ++atomIter) {
                #ifdef MCMD_SHIFT
