@@ -1,4 +1,5 @@
 include $(SRC_DIR)/mcMd/mcMoves/common/sources.mk
+include $(SRC_DIR)/mcMd/mcMoves/micelle/sources.mk
 include $(SRC_DIR)/mcMd/mcMoves/semigrand/sources.mk
 
 mcMd_mcMoves_=\
@@ -7,7 +8,8 @@ mcMd_mcMoves_=\
     mcMd/mcMoves/McMoveManager.cpp \
     mcMd/mcMoves/SystemMove.cpp \
     $(mcMd_mcMoves_common_) \
-    $(mcMd_mcMoves_semigrand_) 
+    $(mcMd_mcMoves_semigrand_) \
+    $(mcMd_mcMoves_micelle_) 
 
 ifdef SIMP_BOND
 include $(SRC_DIR)/mcMd/mcMoves/base/sources.mk
