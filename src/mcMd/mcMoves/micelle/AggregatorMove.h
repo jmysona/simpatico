@@ -12,6 +12,7 @@
 #include <util/containers/DArray.h>   // member template
 #include <util/space/Vector.h>        // member template parameter
 #include <mcMd/mdIntegrators/NphIntegrator.h>         
+#include <mcMd/mcMoves/micelle/ClusterIdentifier.h>
 
 namespace McMd
 {
@@ -92,6 +93,13 @@ namespace McMd
       /// Integration mode
       LatticeSystem mode_;
 
+      /// Old Aggregation Number
+      int oldAggNumber_;
+
+      /// New Aggregation Number
+      int newAggNumber_;
+      
+      ClusterIdentifier identifier_;
    };
 
 }      

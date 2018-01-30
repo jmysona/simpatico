@@ -18,6 +18,7 @@
 #include <simp/ensembles/BoundaryEnsemble.h>
 #include <simp/boundary/OrthorhombicBoundary.h>
 
+
 namespace McMd
 {
 
@@ -29,6 +30,7 @@ namespace McMd
    */
    AggregatorMove::AggregatorMove(McSystem& system) :
       SystemMove(system),
+      identifier_(system),
       mdSystemPtr_(0),
       nStep_(0),
       nphIntegratorPtr_(0),
@@ -102,7 +104,13 @@ namespace McMd
       int    nSpec = simulation().nSpecies();
 
       bool   accept;
-
+      ////// Look at the clust and determine its aggregation number
+      identifier_.identifyClusters();
+      
+      for (int i = 0; i < nMolecules; i++) {
+      
+      }
+      /////
       if (nphIntegratorPtr_ == NULL) {
          UTIL_THROW("null integrator pointer");
       }
