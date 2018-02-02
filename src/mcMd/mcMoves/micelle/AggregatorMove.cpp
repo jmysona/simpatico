@@ -59,6 +59,10 @@ namespace McMd
    {
       readProbability(in);
       read<int>(in, "nStep", nStep_);
+      read<int>(in, "speciesId", speciesId_);
+      read<int>(in, "atomTypeId", atomTypeId_);
+      read<double>(in, "cutoff", cutoff_);
+      identifier_.initialize(speciesId_, atomTypeId_, cutoff_);
       readParamComposite(in, *mdSystemPtr_);
       
       nphIntegratorPtr_ = dynamic_cast<NphIntegrator*>(&mdSystemPtr_->mdIntegrator());
@@ -102,14 +106,21 @@ namespace McMd
       double oldEnergy, newEnergy;
       int    iSpec;
       int    nSpec = simulation().nSpecies();
-
+      Cluster thisCluster;
+      int clusterSize, nClusters;
+      int oldClusterSize = 0;
       bool   accept;
       ////// Look at the clust and determine its aggregation number
       identifier_.identifyClusters();
-      
-      for (int i = 0; i < nMolecules; i++) {
-      
+      nClusters=identifier_.nCluster(); 
+      for (int i = 0; i < nClusters; i++) {
+        thisCluster=identifier_.cluster(i);
+        clusterSize=thisCluster.size();
+        if (clusterSize > oldClusterSize) {
+          oldClusterSize = clusterSize;
+        }
       }
+      std::cout << oldClusterSize << '\n';
       /////
       if (nphIntegratorPtr_ == NULL) {
          UTIL_THROW("null integrator pointer");
@@ -184,9 +195,26 @@ namespace McMd
       newEnergy += mdSystemPtr_->kineticEnergy();
       newEnergy += system().boundaryEnsemble().pressure()*volume;
       newEnergy += nphIntegratorPtr_->barostatEnergy();
+ 
+      // Test if cluster has expelled a molecule
+      identifier_.identifyClusters();
+      nClusters=identifier_.nCluster(); 
+      int newClusterSize = 0;
+      for (int i = 0; i < nClusters; i++) {
+        thisCluster=identifier_.cluster(i);
+        clusterSize=thisCluster.size();
+        if (clusterSize > newClusterSize) {
+          newClusterSize = clusterSize;
+        }
+      }
 
       // Decide whether to accept or reject
       accept = random.metropolis( boltzmann(newEnergy-oldEnergy) );
+
+      if (newClusterSize < oldClusterSize) {
+        accept = false;
+        std::cout << "Expulsion has occured";
+      }   
 
       // Accept move
       if (accept) {

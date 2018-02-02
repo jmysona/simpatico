@@ -100,6 +100,12 @@ namespace McMd
       int newAggNumber_;
       
       ClusterIdentifier identifier_;
+
+      int speciesId_;
+ 
+      int atomTypeId_;
+
+      double cutoff_;
    };
 
 }      
