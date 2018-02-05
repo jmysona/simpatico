@@ -17,7 +17,7 @@
 #endif
 #include <simp/ensembles/BoundaryEnsemble.h>
 #include <simp/boundary/OrthorhombicBoundary.h>
-
+#include <util/space/Tensor.h>
 
 namespace McMd
 {
@@ -113,14 +113,21 @@ namespace McMd
       ////// Look at the clust and determine its aggregation number
       identifier_.identifyClusters();
       nClusters=identifier_.nCluster(); 
+      int bigClusterId;
       for (int i = 0; i < nClusters; i++) {
         thisCluster=identifier_.cluster(i);
         clusterSize=thisCluster.size();
         if (clusterSize > oldClusterSize) {
           oldClusterSize = clusterSize;
+          bigClusterId=i;
         }
       }
-      std::cout << oldClusterSize << '\n';
+      Tensor momentTensor;
+      momentTensor = identifier_.cluster(bigClusterId).momentTensor(atomTypeId_, system().boundary());
+      double rgOld;
+      rgOld = sqrt(momentTensor(0,0)+momentTensor(1,1)+momentTensor(2,2));
+      double oldRgEnergy;
+      oldRgEnergy=1.63*(2.5-rgOld)*(6-rgOld);
       /////
       if (nphIntegratorPtr_ == NULL) {
          UTIL_THROW("null integrator pointer");
@@ -205,15 +212,20 @@ namespace McMd
         clusterSize=thisCluster.size();
         if (clusterSize > newClusterSize) {
           newClusterSize = clusterSize;
+          bigClusterId=i;
         }
       }
 
+      momentTensor = identifier_.cluster(bigClusterId).momentTensor(atomTypeId_, system().boundary());
+      double rgNew;
+      rgNew = sqrt(momentTensor(0,0)+momentTensor(1,1)+momentTensor(2,2));
+      double newRgEnergy;
+      newRgEnergy=1.63*(2.5-rgNew)*(6-rgNew);
       // Decide whether to accept or reject
-      accept = random.metropolis( boltzmann(newEnergy-oldEnergy) );
+      accept = random.metropolis( boltzmann(newEnergy-oldEnergy+newRgEnergy-oldRgEnergy) );
 
       if (newClusterSize < oldClusterSize) {
         accept = false;
-        std::cout << "Expulsion has occured";
       }   
 
       // Accept move
