@@ -62,7 +62,7 @@ namespace McMd
       * \param ar output/saving archive
       */
       virtual void save(Serializable::OArchive &ar);
-
+   
    protected:
 
       /**
@@ -79,7 +79,10 @@ namespace McMd
       */
       virtual void loadSpeciesParam(Serializable::IArchive &ar);
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0a31561d50ea070ac74ca6f560ad950c29a7029e
       /**
       * Return the same type for any particle in any chain.
       *
@@ -117,6 +120,19 @@ namespace McMd
       #endif
 
    private:
+
+      // Type index for all bonds
+      int bondType_;
+
+      #ifdef SIMP_ANGLE
+      // Type index for all angles (if any)
+      int angleType_;
+      #endif
+
+      #ifdef SIMP_DIHEDRAL
+      // Type index for all dihedrals (if any)
+      int dihedralType_;
+      #endif
 
       // A Pair of atom type indexes.
       // Atoms in a molecule with stateId = i have type typeIds_[i]

@@ -44,7 +44,6 @@
 #include <mcMd/potentials/tether/tetherFactory.h>
 #include <mcMd/tethers/TetherMaster.h>
 #endif
-
 #ifdef MCMD_PERTURB
 #include <mcMd/perturb/Perturbation.h>
 #ifdef UTIL_MPI
@@ -54,10 +53,9 @@
 
 // namespace Simp
 #include <simp/species/Species.h>
+#include <simp/ensembles/EnergyEnsemble.h>
+#include <simp/ensembles/BoundaryEnsemble.h>
 
-// namespace Util
-#include <util/ensembles/EnergyEnsemble.h>
-#include <util/ensembles/BoundaryEnsemble.h>
 #include <util/misc/FileMaster.h>
 #include <util/param/Factory.h>
 #include <util/archives/Serializable_includes.h>
@@ -701,6 +699,8 @@ namespace McMd
       int subType;
       bool isMutable = false;
 
+      int subType;
+      bool isMutable = false; 
       Molecule* molPtr;
       Molecule::AtomIterator atomIter;
       int iSpeciesIn, nMoleculeIn;
@@ -713,7 +713,6 @@ namespace McMd
          } else {
            isMutable = false;
          }
-         std::cout << iSpecies << "  " << iSpeciesIn << '\n';
          if (iSpeciesIn != iSpecies) {
             UTIL_THROW("Error: iSpeciesIn != iSpecies");
          }
@@ -725,9 +724,14 @@ namespace McMd
                UTIL_THROW("Molecule index error");
             }
             if (isMutable) {
+<<<<<<< HEAD
                ar >> subType;
                std::cout << subType << '\n';
                simulation().species(iSpecies).mutator().setMoleculeState(*molPtr, subType);
+=======
+              ar >> subType;
+              simulation().species(iSpecies).mutator().setMoleculeState(*molPtr, subType);
+>>>>>>> 0a31561d50ea070ac74ca6f560ad950c29a7029e
             }
             molPtr->begin(atomIter); 
             for ( ; atomIter.notEnd(); ++atomIter) {
@@ -750,6 +754,10 @@ namespace McMd
    void System::saveConfig(Serializable::OArchive& ar)
    { 
       ar << boundary();
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0a31561d50ea070ac74ca6f560ad950c29a7029e
       int subType;
       bool isMutable = false;
       System::MoleculeIterator molIter;
@@ -769,10 +777,15 @@ namespace McMd
          begin(iSpecies, molIter); 
          for ( ; molIter.notEnd(); ++molIter) {
             if (isMutable) {
+<<<<<<< HEAD
               //Why does this work?????
               std::cout<< simulation().species(iSpecies).mutator().moleculeStateId(*molIter) << '\n';
               subType = simulation().species(iSpecies).mutator().moleculeStateId(*molIter);
               ar <<  subType;
+=======
+              subType = simulation().species(iSpecies).mutator().moleculeStateId(*molIter);
+              ar << subType;
+>>>>>>> 0a31561d50ea070ac74ca6f560ad950c29a7029e
             }
             molIter->begin(atomIter); 
             for ( ; atomIter.notEnd(); ++atomIter) {

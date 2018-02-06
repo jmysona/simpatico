@@ -140,48 +140,52 @@ namespace McMd
       char* iArg = 0;
       char* oArg = 0;
    
-      // Read program arguments
+      // Read and store all program arguments
       int c;
       opterr = 0;
       while ((c = getopt(argc, argv, "qer:p:c:i:o:f")) != -1) {
          switch (c) {
          case 'q':
-           qflag = true;
-           break;
+            qflag = true;
+            break;
          case 'e':
-           eflag = true;
-           break;
+            eflag = true;
+            break;
          case 'r':
-           rFlag = true;
-           rarg  = optarg;
-           break;
+            rFlag = true;
+            rarg  = optarg;
+            break;
          case 'p': // parameter file
-           pFlag = true;
-           pArg  = optarg;
-           break;
+            pFlag = true;
+            pArg  = optarg;
+            break;
          case 'c': // command file
-           cFlag = true;
-           cArg  = optarg;
-           break;
+            cFlag = true;
+            cArg  = optarg;
+            break;
          case 'i': // input prefix
-           iFlag = true;
-           iArg  = optarg;
-           break;
+            iFlag = true;
+            iArg  = optarg;
+            break;
          case 'o': // output prefix
-           oFlag = true;
-           oArg  = optarg;
+            oFlag = true;
+            oArg  = optarg;
            break;
          #ifdef MCMD_PERTURB
          case 'f':
-           fflag = true;
-           break;
+            fflag = true;
+            break;
          #endif
-         case '?':
-           std::cout << "Unknown option -" << optopt << std::endl;
-           UTIL_THROW("Invalid command line option");
+         case '?': {
+              char optChar = optopt;
+              std::cout << "Unknown option -" << optChar << std::endl;
+              UTIL_THROW("Invalid command line option");
+            }
          }
       }
-  
+ 
+      // Apply requested options 
+ 
       #ifndef UTIL_MPI
       if (qflag) {
          // Output list of enabled/disabled compile-time options.
@@ -224,6 +228,17 @@ namespace McMd
          fileMaster().setParamFileName(std::string(pArg));
       }
 
+      // If option -r, restart
+      if (rFlag) {
+         // Log::file() << "Reading restart file "
+         //             << std::string(rarg) << std::endl;
+         isRestarting_ = true; 
+         load(std::string(rarg));
+      }
+
+      // The -c, -i, and -o options are applied after the -r option
+      // so that they override any paths set in the restart file. 
+
       // If option -c, set command file name
       if (cFlag) {
          fileMaster().setCommandFileName(std::string(cArg));
@@ -237,14 +252,6 @@ namespace McMd
       // If option -o, set path prefix for output files
       if (oFlag) {
          fileMaster().setOutputPrefix(std::string(oArg));
-      }
-
-      // If option -r, restart
-      if (rFlag) {
-         // Log::file() << "Reading restart file "
-         //             << std::string(rarg) << std::endl;
-         isRestarting_ = true; 
-         load(std::string(rarg));
       }
 
    }

@@ -11,16 +11,17 @@
 #include "ClusterHistogram.h"
 #include <mcMd/simulation/System.h>
 #include <mcMd/simulation/Simulation.h>
-#include <simp/species/Species.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
+
+#include <simp/boundary/Boundary.h>
+#include <simp/species/Species.h>
+
 #include <util/misc/FileMaster.h>        
 #include <util/archives/Serializable_includes.h>
-
 #include <util/format/Int.h>
 #include <util/format/Dbl.h>
 #include <util/misc/ioUtil.h>
-#include <util/boundary/Boundary.h>
 #include <util/space/Tensor.h>
 #include <util/containers/DArray.h>
 #include <sstream>
@@ -29,6 +30,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /// Constructor.
    ClusterHistogram::ClusterHistogram(System& system) 
@@ -180,67 +182,32 @@ namespace McMd
          //Calculate, store, and write the micelle center of mass
          fileMaster().openOutputFile(outputFileName(".COMs"+toString(iStep)),outputFile_);
          //comArray;
-         int nAtomsInCluster;
          Vector clusterCOM;
          Vector r0;
          Vector dr;
-         Tensor rgTensor;
+         Tensor moment;
          Tensor rgDyad;
          DArray<Vector> allCOMs;
-         DArray<Tensor> allRgTensors;
+         DArray<Tensor> allMoments;
          allCOMs.allocate(identifier_.nCluster());
-         allRgTensors.allocate(identifier_.nCluster());
+         allMoments.allocate(identifier_.nCluster());
          Molecule::ConstAtomIterator atomIter;
          for (int i = 0; i < identifier_.nCluster(); i++) {
              thisCluster = identifier_.cluster(i);
-             thisClusterStart = thisCluster.head();
              outputFile_ << i << "	" ;
              //For that cluster, calculate the center of mass
-             nAtomsInCluster = 0;
-             clusterCOM.zero();
-             //Pick the first atom of the first molecule in the cluster to move everything else relative to it            
-             r0 = (thisClusterStart->molecule()).atom(0).position();
-             while (thisClusterStart) {
-                next = thisClusterStart->next();
-                thisMolecule = thisClusterStart->molecule();
-                thisMolecule.begin(atomIter);
-                for ( ; atomIter.notEnd();++atomIter) {
-                  if (atomIter->typeId() == atomTypeId_) {
-                    system().boundary().distanceSq(atomIter->position(),r0,dr);
-                    clusterCOM += dr;
-                    nAtomsInCluster += 1;    
-                  }
-                }
-                thisClusterStart = next;
-             }
-             //
-             clusterCOM /= nAtomsInCluster;
-             clusterCOM += r0;
+             clusterCOM = thisCluster.clusterCOM(atomTypeId_, system().boundary());
              outputFile_ << clusterCOM;
              outputFile_ << "\n";
              allCOMs[i] = clusterCOM;
              //Calculate Rg
-             thisClusterStart = thisCluster.head();
-             rgTensor.zero(); 
-             while (thisClusterStart) {
-                next = thisClusterStart->next();
-                thisMolecule = thisClusterStart->molecule();
-                thisMolecule.begin(atomIter);
-                for ( ; atomIter.notEnd(); ++atomIter) {
-                  if (atomIter->typeId()==atomTypeId_) {
-                    system().boundary().distanceSq(atomIter->position(),clusterCOM,dr);
-                    rgTensor += rgDyad.dyad(dr,dr);
-                  }                
-                } 
-                thisClusterStart = next;
-             }
-             rgTensor /= nAtomsInCluster;
-             allRgTensors[i] = rgTensor;
+             moment = thisCluster.momentTensor(atomTypeId_, system().boundary());
+             allMoments[i] = moment;
          }
          outputFile_.close();
-         fileMaster().openOutputFile(outputFileName(".RgTensors"+toString(iStep)),outputFile_);
+         fileMaster().openOutputFile(outputFileName(".momentTensors"+toString(iStep)),outputFile_);
          for (int i = 0; i < identifier_.nCluster(); i++) {
-             outputFile_ << i << "	" << allRgTensors[i] << "\n";
+             outputFile_ << i << "	" << allMoments[i] << "\n";
            
          }
          outputFile_.close();
