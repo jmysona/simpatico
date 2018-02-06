@@ -79,10 +79,6 @@ namespace McMd
       */
       virtual void loadSpeciesParam(Serializable::IArchive &ar);
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 0a31561d50ea070ac74ca6f560ad950c29a7029e
       /**
       * Return the same type for any particle in any chain.
       *
