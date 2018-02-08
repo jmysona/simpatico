@@ -1,5 +1,5 @@
-#ifndef MCMD_MICELLE_FLUX_H
-#define MCMD_MICELLE_FLUX_H
+#ifndef MCMD_CATCH_RELEASE_H
+#define MCMD_CATCH_RELEASE_H
 
 /*
 * Simpatico - Simulation Package for Polymeric and Molecular Liquids
@@ -25,7 +25,7 @@ namespace McMd
    /**
    * Identify micelle clusters in polymeric systems.
    */
-   class MicelleFlux : public SystemAnalyzer<System>
+   class CatchRelease : public SystemAnalyzer<System>
    {
    
    public:
@@ -35,7 +35,7 @@ namespace McMd
       *
       * \param system reference to parent System object
       */
-      MicelleFlux(System &system);
+      CatchRelease(System &system);
    
       /**
       * Read parameters from file, and allocate data array.
@@ -147,7 +147,7 @@ namespace McMd
    * Serialize to/from an archive. 
    */
    template <class Archive>
-   void MicelleFlux::serialize(Archive& ar, const unsigned int version)
+   void CatchRelease::serialize(Archive& ar, const unsigned int version)
    {  
       Analyzer::serialize(ar, version);
       ar & speciesId_;

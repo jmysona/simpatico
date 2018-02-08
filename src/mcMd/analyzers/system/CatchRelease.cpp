@@ -1,5 +1,5 @@
-#ifndef MCMD_MICELLE_FLUX_CPP
-#define MCMD_MICELLE_FLUX_CPP
+#ifndef MCMD_CATCH_RELEASE_CPP
+#define MCMD_CATCH_RELEASE_CPP
 
 /*
 * Simpatico - Simulation Package for Polymeric and Molecular Liquids
@@ -8,7 +8,7 @@
 * Distributed under the terms of the GNU General Public License.
 */
 
-#include "MicelleFlux.h"
+#include "CatchRelease.h"
 #include <mcMd/simulation/System.h>
 #include <mcMd/simulation/Simulation.h>
 #include <simp/species/Species.h>
@@ -27,7 +27,7 @@ namespace McMd
    using namespace Util;
 
    /// Constructor.
-   MicelleFlux::MicelleFlux(System& system) 
+   CatchRelease::CatchRelease(System& system) 
     : SystemAnalyzer<System>(system),
       identifier_(system),
       hist_(),
@@ -43,7 +43,7 @@ namespace McMd
    {  setClassName("MicelleFlux"); }
 
    /// Read parameters from file, and allocate arrays.
-   void MicelleFlux::readParameters(std::istream& in) 
+   void CatchRelease::readParameters(std::istream& in) 
    {  
       readInterval(in);
       readOutputFileName(in);
@@ -94,7 +94,7 @@ namespace McMd
    /*
    * Load state from an archive.
    */
-   void MicelleFlux::loadParameters(Serializable::IArchive& ar)
+   void CatchRelease::loadParameters(Serializable::IArchive& ar)
    {
       // Load interval and outputFileName
       Analyzer::loadParameters(ar);
@@ -136,7 +136,7 @@ namespace McMd
    /*
    * Save state to archive.
    */
-   void MicelleFlux::save(Serializable::OArchive& ar)
+   void CatchRelease::save(Serializable::OArchive& ar)
    {
       Analyzer::save(ar);
       ar & speciesId_;
@@ -148,7 +148,7 @@ namespace McMd
    /*
    * Clear accumulators.
    */
-   void MicelleFlux::setup() 
+   void CatchRelease::setup() 
    {  
       if (!isInitialized_) UTIL_THROW("Object is not initialized");
       nSample_ = 0;
@@ -158,7 +158,7 @@ namespace McMd
    *  Calculate the micelle's center of mass
    */
    
-   Vector MicelleFlux::comCalculator(DArray<int> micelleIds)
+   Vector CatchRelease::comCalculator(DArray<int> micelleIds)
    { Species* speciesPtr;
      speciesPtr = &(system().simulation().species(speciesId_));
      int nMolecules = speciesPtr -> capacity();
@@ -208,7 +208,7 @@ namespace McMd
    /* 
    * Evaluate end-to-end vectors of all chains, add to ensemble.
    */
-   void MicelleFlux::sample(long iStep) 
+   void CatchRelease::sample(long iStep) 
    { 
       if (isAtInterval(iStep)) {
          identifier_.identifyClusters();
@@ -274,7 +274,7 @@ namespace McMd
    /*
    * Output results to file after simulation is completed.
    */
-   void MicelleFlux::output() 
+   void CatchRelease::output() 
    {  outputFile_.close();
       // Write parameter file
       fileMaster().openOutputFile(outputFileName(".prm"), outputFile_);
