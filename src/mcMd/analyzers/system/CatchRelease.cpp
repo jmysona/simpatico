@@ -77,6 +77,7 @@ namespace McMd
       read<double>(in, "radius", radius_);
 
       read<int>(in, "beadNumber", beadNumber_);
+      read<int>(in, "tauFlip", tauFlip_);
       // Initialize ClusterIdentifier
       identifier_.initialize(speciesId_, atomTypeId_, cutoff_);
       fileMaster().openOutputFile(outputFileName(".dat"), outputFile_);
@@ -155,9 +156,9 @@ namespace McMd
    }
 
    /*
-   *  Calculate the micelle's center of mass
+   *  This is likely obsolete as each cluster object can now find it's own COM
    */
-   
+   /*   
    Vector CatchRelease::comCalculator(DArray<int> micelleIds)
    { Species* speciesPtr;
      speciesPtr = &(system().simulation().species(speciesId_));
@@ -203,7 +204,7 @@ namespace McMd
         return comTrack;
    
    }
-
+   */
 
    /* 
    * Evaluate end-to-end vectors of all chains, add to ensemble.
@@ -213,13 +214,17 @@ namespace McMd
       if (isAtInterval(iStep)) {
          identifier_.identifyClusters();
          ++nSample_;
-      //}
+      bool needsFlipping = false;
+      if(mod(iStep % tauFlip_)==0) {
+        needsFlipping = true;
+      }
       Species* speciesPtr;
       speciesPtr = &(system().simulation().species(speciesId_)); 
       int nMolecules = speciesPtr->capacity();
       ClusterLink* LinkPtr;      
       // Write the time step to the data file
       // Cycle through all the surfactant molecules; if they are in a micelle set status = 1, otherwise set status = 0;
+      int numberMoleculesInMicelle=0;
       for (int i = 0; i < nMolecules; i++) {
          bool inCluster = false;
          // Get the molecule link
@@ -230,13 +235,20 @@ namespace McMd
          int clusterSize = identifier_.cluster(clusterId).size();
          if (clusterSize > 10) {
          InMicelle_[i]=1;
+         numberMoleculesInMicelle ++1;
          }
          else {
          InMicelle_[i]=0;
          }
       }
+      if (needsFlipping) {
+        moleculeToFlip=randomInt(0,numberMoleculesInMicelle);
+        
+      }
       Vector r;
-      micelleCOM_=comCalculator(InMicelle_);
+      // Cluster COM
+      micelleCOM_ = identifier_.cluster(bigCluster).COM();
+      //
       Vector lengths = system().boundary().lengths();
       double distance;
       for (int i = 0; i < nMolecules; i++) {
@@ -267,7 +279,6 @@ namespace McMd
             outputFile_ << "\n";
           }
           priorMicelleFlux_=micelleFlux_;
-          
     } 
    }
 
