@@ -14,6 +14,7 @@
 #include <simp/species/Species.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
+#include <mcMd/species/LinearSG.h>
 #include <util/misc/FileMaster.h>        
 #include <util/archives/Serializable_includes.h>
 #include <util/format/Int.h>
@@ -55,7 +56,7 @@ namespace McMd
          UTIL_THROW("speciesId > nSpecies");
       }
       Species* speciesPtr;
-      speciesPtr = &(system().simulation().species(speciesId_)); 
+      speciesPtr = dynamic_cast<LinearSG*>(&(system().simulation().species(speciesId_))); 
       isMutable_ = (speciesPtr->isMutable());
       if (isMutable_) {
          read<int>(in, "speciesSubtype", speciesSubtype_);
@@ -215,9 +216,11 @@ namespace McMd
          identifier_.identifyClusters();
          ++nSample_;
       bool needsFlipping = false;
-      if(mod(iStep % tauFlip_)==0) {
+      if((iStep % tauFlip_)==0) {
         needsFlipping = true;
       }
+      int moleculeToFlip;
+      int bigClusterId;
       Species* speciesPtr;
       speciesPtr = &(system().simulation().species(speciesId_)); 
       int nMolecules = speciesPtr->capacity();
@@ -235,19 +238,20 @@ namespace McMd
          int clusterSize = identifier_.cluster(clusterId).size();
          if (clusterSize > 10) {
          InMicelle_[i]=1;
-         numberMoleculesInMicelle ++1;
+         numberMoleculesInMicelle += 1;
+         bigClusterId = clusterId;
          }
          else {
          InMicelle_[i]=0;
          }
       }
       if (needsFlipping) {
-        moleculeToFlip=randomInt(0,numberMoleculesInMicelle);
+        moleculeToFlip=system().simulation().random().uniformInt(0,numberMoleculesInMicelle);
         
       }
       Vector r;
       // Cluster COM
-      micelleCOM_ = identifier_.cluster(bigCluster).COM();
+      micelleCOM_ = identifier_.cluster(bigClusterId).clusterCOM(atomTypeId_,system().boundary());
       //
       Vector lengths = system().boundary().lengths();
       double distance;
@@ -265,7 +269,6 @@ namespace McMd
                 }
           }
           distance = sqrt(distance);
-          std::cout << distance << '\n';
           if (distance > radius_) {
              micelleFlux_[i] = 0;}
           else if (InMicelle_[i] == 1){
