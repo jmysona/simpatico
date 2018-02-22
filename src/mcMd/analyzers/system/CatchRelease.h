@@ -23,7 +23,10 @@ namespace McMd
    using namespace Util;
 
    /**
-   * Identify micelle clusters in polymeric systems.
+   * Janky code that periodically cycles molecules out of a micelle
+   *  for use in high chi systems to calculate the capture radius and
+   *  insertion and expulsion rates. Utilizes semigrand type to change
+   *   molecules and is super janky
    */
    class CatchRelease : public SystemAnalyzer<System>
    {
@@ -64,7 +67,6 @@ namespace McMd
       */
       virtual void sample(long iStep);
       
-      Vector comCalculator(DArray<int> micelleIds); 
       /**
       * Output results at end of simulation.
       */
@@ -141,6 +143,12 @@ namespace McMd
       DArray<Vector> UnwrappedPositions_;
       DArray<int> micelleFlux_;
       DArray<int> priorMicelleFlux_;
+
+      int tauFlip_;
+ 
+      int diblockType_;
+      
+      int homopolymerType_;
    };
 
    /**

@@ -79,6 +79,8 @@ namespace McMd
 
       read<int>(in, "beadNumber", beadNumber_);
       read<int>(in, "tauFlip", tauFlip_);
+      read<int>(in, "diblockType", diblockType_);
+      read<int>(in, "homopolymerType", homopolymerType_);
       // Initialize ClusterIdentifier
       identifier_.initialize(speciesId_, atomTypeId_, cutoff_);
       fileMaster().openOutputFile(outputFileName(".dat"), outputFile_);
@@ -161,23 +163,23 @@ namespace McMd
    */
    void CatchRelease::sample(long iStep) 
    { 
-      if (isAtInterval(iStep)) {
-         identifier_.identifyClusters();
-         ++nSample_;
-      bool needsFlipping = false;
-      if((iStep % tauFlip_)==0) {
-        needsFlipping = true;
-      }
-      int moleculeToFlip;
-      int bigClusterId;
-      Species* speciesPtr;
-      speciesPtr = &(system().simulation().species(speciesId_)); 
-      int nMolecules = speciesPtr->capacity();
-      ClusterLink* LinkPtr;      
-      // Write the time step to the data file
-      // Cycle through all the surfactant molecules; if they are in a micelle set status = 1, otherwise set status = 0;
-      int numberMoleculesInMicelle=0;
-      for (int i = 0; i < nMolecules; i++) {
+     if (isAtInterval(iStep)) {
+       identifier_.identifyClusters();
+       ++nSample_;
+       bool needsFlipping = false;
+        if((iStep % tauFlip_)==0) {
+          needsFlipping = true;
+        }
+       int moleculeToFlip;
+       int bigClusterId;
+       Species* speciesPtr;
+       speciesPtr = &(system().simulation().species(speciesId_)); 
+       int nMolecules = speciesPtr->capacity();
+       ClusterLink* LinkPtr;      
+       // Write the time step to the data file
+       // Cycle through all the surfactant molecules; if they are in a micelle set status = 1, otherwise set status = 0;
+       int numberMoleculesInMicelle=0;
+       for (int i = 0; i < nMolecules; i++) {
          bool inCluster = false;
          // Get the molecule link
          LinkPtr = &(identifier_.link(i));
@@ -186,59 +188,61 @@ namespace McMd
          // Determine the cluster size
          int clusterSize = identifier_.cluster(clusterId).size();
          if (clusterSize > 10) {
-         InMicelle_[i]=1;
-         numberMoleculesInMicelle += 1;
-         bigClusterId = clusterId;
+           InMicelle_[i]=1;
+           numberMoleculesInMicelle += 1;
+           bigClusterId = clusterId;
+         } else {
+           InMicelle_[i]=0;
          }
-         else {
-         InMicelle_[i]=0;
+       }
+       if (needsFlipping) {
+         moleculeToFlip=system().simulation().random().uniformInt(0,numberMoleculesInMicelle);
+         clusterLink = cluster(bigClusterId).head();
+         for (int i = 0; i < moleculeToFlip; i++) {
+           clusterLink.next();
          }
-      }
-      if (needsFlipping) {
-        moleculeToFlip=system().simulation().random().uniformInt(0,numberMoleculesInMicelle);
-        clusterLink = cluster(bigClusterId).head();
-        for (int i = 0; i < moleculeToFlip; i++) {
-          clusterLink.next();
-        }
-        clusterLink.molecule();
-        speciesPtr_->mutator().setMoleculeState(molecule, newStateId);
-        
-      }
-
-      Vector r;
-      // Cluster COM
-      micelleCOM_ = identifier_.cluster(bigClusterId).clusterCOM(atomTypeId_,system().boundary());
-      //
-      Vector lengths = system().boundary().lengths();
-      double distance;
-      for (int i = 0; i < nMolecules; i++) {
-          distance = 0;
-          r = system().molecule(speciesId_, i).atom(beadNumber_).position();
-          for (int j = 0; j < Dimension; j++)
-          { if (std::abs(micelleCOM_[j]-r[j]) > lengths[j]/2) {
-                    if ((r[j]-micelleCOM_[j]) > 0)
-                      distance = distance + pow(micelleCOM_[j]-r[j]+lengths[j],2);
-                      else 
-                      distance = distance + pow(micelleCOM_[j]-r[j]-lengths[j],2);
-                    } else {
-                    distance = distance + pow(micelleCOM_[j]-r[j],2);
-                }
-          }
-          distance = sqrt(distance);
-          if (distance > radius_) {
-             micelleFlux_[i] = 0;}
-          else if (InMicelle_[i] == 1){
-             micelleFlux_[i] = 1;}
-          else {
-             micelleFlux_[i] = priorMicelleFlux_[i];}
-          }
-          for (int i = 0; i < nMolecules; i++) {
-            outputFile_ << micelleFlux_[i] << "  ";
-          if (i == nMolecules -1)
-            outputFile_ << "\n";
-          }
-          priorMicelleFlux_=micelleFlux_;
-    } 
+         clusterLink.molecule();
+         speciesPtr_->mutator().setMoleculeState(molecule, homopolymerType_);
+       }
+       Vector r;
+       // Cluster COM
+       micelleCOM_ = identifier_.cluster(bigClusterId).clusterCOM(atomTypeId_,system().boundary());
+       //
+       Vector lengths = system().boundary().lengths();
+       double distance;
+       for (int i = 0; i < nMolecules; i++) {
+         distance = 0;
+         r = system().molecule(speciesId_, i).atom(beadNumber_).position();
+         for (int j = 0; j < Dimension; j++) { 
+           if (std::abs(micelleCOM_[j]-r[j]) > lengths[j]/2) {
+             if ((r[j]-micelleCOM_[j]) > 0)
+               distance = distance + pow(micelleCOM_[j]-r[j]+lengths[j],2);
+             else 
+               distance = distance + pow(micelleCOM_[j]-r[j]-lengths[j],2);
+           } else {
+             distance = distance + pow(micelleCOM_[j]-r[j],2);       
+           } 
+         } 
+         distance = sqrt(distance);
+         if (distance > radius_) {
+           micelleFlux_[i] = 0;
+           if (system().molecule(speciesId_,i).moleculeStateId() == homopolymerType_) {
+             speciesPter_->mutator().setMoleculeState(molecule, diblockType_);
+           }
+         }
+         else if (InMicelle_[i] == 1) {
+           micelleFlux_[i] = 1;
+         } else {
+           micelleFlux_[i] = priorMicelleFlux_[i];
+         }
+       }
+       for (int i = 0; i < nMolecules; i++) {
+         outputFile_ << micelleFlux_[i] << "  ";
+       if (i == nMolecules -1)
+         outputFile_ << "\n";
+       }
+       priorMicelleFlux_=micelleFlux_;
+     } 
    }
 
    /*
