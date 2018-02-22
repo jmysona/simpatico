@@ -156,57 +156,6 @@ namespace McMd
       nSample_ = 0;
    }
 
-   /*
-   *  This is likely obsolete as each cluster object can now find it's own COM
-   */
-   /*   
-   Vector CatchRelease::comCalculator(DArray<int> micelleIds)
-   { Species* speciesPtr;
-     speciesPtr = &(system().simulation().species(speciesId_));
-     int nMolecules = speciesPtr -> capacity();
-     int clusterSize = 0;
-//     Vector centralMolecule;
-     Vector r;
-     Vector comTrack;
-     for (int j=0; j<Dimension; ++j){
-       comTrack[j] =0;
-     }
-     Vector centralAtom;
-     Vector lengths = system().boundary().lengths();
-     particleCount_=0;  
-     for (int i = 0; i < nMolecules; ++i) {
-       if (micelleIds[i] == 1)
-         {  for (int k = 0; k < beadNumber_; ++k)
-            { 
-            particleCount_ = particleCount_+1;
-            r = system().molecule(speciesId_, i).atom(k).position();
-            if (clusterSize == 0)
-               {centralAtom = r;
-               }
-            clusterSize = clusterSize + 1;
-            for (int j=0; j<Dimension; ++j) {
-                if (std::abs(centralAtom[j]-r[j]) > lengths[j]/2) {
-                    if ((r[j]-centralAtom[j]) > 0)
-                      {comTrack[j] = comTrack[j]+r[j]-lengths[j];}
-                      else 
-                      {comTrack[j] = comTrack[j]+r[j]+lengths[j];}
-                    } else {
-                    comTrack[j]=comTrack[j]+r[j];
-                }
-              
-            }
-            }
-         }
-      }  
-         for (int j=0; j<Dimension; ++j) {
-            comTrack[j]=comTrack[j]/particleCount_;
-        }
-        std::cout << comTrack << '\n';
-        return comTrack;
-   
-   }
-   */
-
    /* 
    * Evaluate end-to-end vectors of all chains, add to ensemble.
    */
@@ -247,8 +196,15 @@ namespace McMd
       }
       if (needsFlipping) {
         moleculeToFlip=system().simulation().random().uniformInt(0,numberMoleculesInMicelle);
+        clusterLink = cluster(bigClusterId).head();
+        for (int i = 0; i < moleculeToFlip; i++) {
+          clusterLink.next();
+        }
+        clusterLink.molecule();
+        speciesPtr_->mutator().setMoleculeState(molecule, newStateId);
         
       }
+
       Vector r;
       // Cluster COM
       micelleCOM_ = identifier_.cluster(bigClusterId).clusterCOM(atomTypeId_,system().boundary());
