@@ -149,6 +149,8 @@ namespace McMd
       int diblockType_;
       
       int homopolymerType_;
+
+      Species* speciesPtr_;
    };
 
    /**

@@ -55,9 +55,8 @@ namespace McMd
       if (speciesId_ >= system().simulation().nSpecies()) {
          UTIL_THROW("speciesId > nSpecies");
       }
-      Species* speciesPtr;
-      speciesPtr = dynamic_cast<LinearSG*>(&(system().simulation().species(speciesId_))); 
-      isMutable_ = (speciesPtr->isMutable());
+      speciesPtr_ = dynamic_cast<LinearSG*>(&(system().simulation().species(speciesId_))); 
+      isMutable_ = (speciesPtr_->isMutable());
       if (isMutable_) {
          read<int>(in, "speciesSubtype", speciesSubtype_);
       }
@@ -197,11 +196,11 @@ namespace McMd
        }
        if (needsFlipping) {
          moleculeToFlip=system().simulation().random().uniformInt(0,numberMoleculesInMicelle);
-         clusterLink = cluster(bigClusterId).head();
+         LinkPtr = identifier_.cluster(bigClusterId).head();
          for (int i = 0; i < moleculeToFlip; i++) {
-           clusterLink.next();
+           LinkPtr->next();
          }
-         clusterLink.molecule();
+         Molecule& molecule = LinkPtr->molecule();
          speciesPtr_->mutator().setMoleculeState(molecule, homopolymerType_);
        }
        Vector r;
@@ -213,6 +212,7 @@ namespace McMd
        for (int i = 0; i < nMolecules; i++) {
          distance = 0;
          r = system().molecule(speciesId_, i).atom(beadNumber_).position();
+         Molecule& molecule = system().molecule(speciesId_, i);
          for (int j = 0; j < Dimension; j++) { 
            if (std::abs(micelleCOM_[j]-r[j]) > lengths[j]/2) {
              if ((r[j]-micelleCOM_[j]) > 0)
@@ -226,8 +226,8 @@ namespace McMd
          distance = sqrt(distance);
          if (distance > radius_) {
            micelleFlux_[i] = 0;
-           if (system().molecule(speciesId_,i).moleculeStateId() == homopolymerType_) {
-             speciesPter_->mutator().setMoleculeState(molecule, diblockType_);
+           if (speciesPtr_->mutator().moleculeStateId(molecule) == homopolymerType_) {
+             speciesPtr_->mutator().setMoleculeState(molecule, diblockType_);
            }
          }
          else if (InMicelle_[i] == 1) {
