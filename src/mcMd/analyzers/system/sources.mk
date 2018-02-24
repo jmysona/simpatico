@@ -24,7 +24,8 @@ mcMd_analyzers_system_+=\
     mcMd/analyzers/system/RingRouseAutoCorr.cpp \
     mcMd/analyzers/system/ClusterIdentifier.cpp \
     mcMd/analyzers/system/ClusterHistogram.cpp \
-    mcMd/analyzers/system/Cluster.cpp 
+    mcMd/analyzers/system/Cluster.cpp \
+    mcMd/analyzers/system/InterfacialLoading.cpp 
 endif
 
 mcMd_analyzers_system_SRCS=\
