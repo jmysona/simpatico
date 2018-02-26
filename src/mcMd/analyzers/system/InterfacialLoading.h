@@ -11,6 +11,7 @@
 #include <mcMd/analyzers/SystemAnalyzer.h>      // base class template
 #include <mcMd/simulation/System.h>                 // base class template parameter
 #include <util/accumulators/IntDistribution.h>
+#include <mcMd/neighbor/CellList.h>
 
 #include <util/global.h>
 
@@ -98,6 +99,8 @@ namespace McMd
       int atomType2Id_;
       double cutoff_;
       int histMax_;
+
+      CellList cellList_;
 
    };
 

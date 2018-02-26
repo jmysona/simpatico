@@ -6,6 +6,11 @@
 */
 
 #include "InterfacialLoading.h"
+#include <simp/boundary/Boundary.h>
+
+#include <mcMd/chemistry/Molecule.h>
+#include <mcMd/chemistry/Atom.h>
+#include <simp/species/Species.h>
 
 #include <util/global.h>
 
@@ -68,16 +73,59 @@ namespace McMd
       }
       accumulator_.setParam(0, histMax_); 
       accumulator_.clear(); 
+      int atomCapacity = system().simulation().atomCapacity();
+      cellList_.setAtomCapacity(atomCapacity);
    }
 
    /// Add particle pairs to RDF histogram.
    void InterfacialLoading::sample(long iStep) 
    {
       if (isAtInterval(iStep))  {
+        //Build the cell list of the second species
+        cellList_.setup(system().boundary(), cutoff_);
+        System::MoleculeIterator molIter;
+        Molecule::AtomIterator atomIter;
+        CellList::NeighborArray neighborArray;
+        Atom* otherAtom;
+        double cutoffSq = cutoff_*cutoff_;
+        double rsq;
+        int moleculesOnInterface = 0;
+        bool isMoleculeOnInterface;
 
 
+        system().begin(species2Id_,molIter);
+        for( ; molIter.notEnd(); ++molIter) {
+          for (molIter->begin(atomIter); atomIter.notEnd(); ++atomIter) {
+            if (atomIter->typeId() == atomType2Id_) {
+              system().boundary().shift(atomIter->position());
+              cellList_.addAtom(*atomIter);
+            }
+          }
+        }
+        /// Cell list built, now cycle through the other species to see which are in contact
+        system().begin(species1Id_,molIter);
+        for( ; molIter.notEnd(); ++molIter) {
+          isMoleculeOnInterface = false;
+          for (molIter->begin(atomIter); atomIter.notEnd(); ++atomIter) {
+            if (atomIter->typeId() == atomType1Id_) {
+              cellList_.getNeighbors(atomIter->position(), neighborArray);
+              for (int i = 0; i< neighborArray.size(); i++) {
+                otherAtom = neighborArray[i];
+                rsq = system().boundary().distanceSq(atomIter->position(),otherAtom->position());
+                if (rsq < cutoffSq) {
+                  isMoleculeOnInterface = true;
+                  moleculesOnInterface += 1;
+                  break;
+                }  
+              }
+              if (isMoleculeOnInterface) {
+                break;
+              }
+            }      
+          }
+        }
+        accumulator_.sample(moleculesOnInterface);
       } 
-
    }
 
 
