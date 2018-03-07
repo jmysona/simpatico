@@ -28,6 +28,7 @@
 #include "ring/RingOctaRebridgeMove.h"
 
 #include "semigrand/HomopolymerSemiGrandMove.h"
+#include "semigrand/LinearPolymerSemiGrandMove.h"
 #endif
 
 namespace McMd
@@ -98,6 +99,9 @@ namespace McMd
       } else 
       if (className == "HomopolymerSemiGrandMove") {
          ptr = new HomopolymerSemiGrandMove(*systemPtr_);
+      } else 
+      if (className == "LinearPolymerSemiGrandMove") {
+         ptr = new LinearPolymerSemiGrandMove(*systemPtr_);
       } 
       #endif
 
