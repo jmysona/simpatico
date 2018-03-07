@@ -219,14 +219,14 @@ namespace McMd
    void LinearSG::setMoleculeState(Molecule& molecule, int stateId)
    {
       int nAtom  = molecule.nAtom();
-      DArray<int> beadIdentities;
-      for (int i = 0; i < nAtom; ++i) {
-         if (stateId == 0) {
-            beadIdentities = beadTypeIds0_;
-         } else {
-            beadIdentities = beadTypeIds1_;
-         }
-         molecule.atom(i).setTypeId(beadIdentities[i]);
+      if (stateId == 0) {
+        for (int i = 0; i < nAtom; ++i) {
+          molecule.atom(i).setTypeId(beadTypeIds0_[i]);
+        }
+      } else {
+        for (int i = 0; i < nAtom; ++i) {
+          molecule.atom(i).setTypeId(beadTypeIds1_[i]);
+        }
       }
       setMoleculeStateId(molecule, stateId);
    }
